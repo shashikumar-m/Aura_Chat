@@ -59,9 +59,14 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
   background-size:200px;pointer-events:none}
 
 /* SIDEBAR */
-#sidebar{width:300px;min-width:300px;background:var(--sidebar-bg);
+#sidebar{width:300px;min-width:200px;max-width:520px;background:var(--sidebar-bg);
   border-right:1px solid var(--border);display:flex;flex-direction:column;
-  overflow:hidden;position:relative;transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);z-index:200}
+  overflow:hidden;position:relative;z-index:200}
+
+/* resize handle */
+#sidebarResizer{position:absolute;top:0;right:0;width:5px;height:100%;
+  cursor:col-resize;z-index:300;background:transparent;transition:background 0.15s}
+#sidebarResizer:hover,#sidebarResizer.dragging{background:var(--accent)}
 #sidebar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:linear-gradient(90deg,var(--accent),#a78bfa,var(--accent2))}
 
@@ -613,6 +618,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 
 <!-- SIDEBAR -->
 <div id="sidebar">
+  <div id="sidebarResizer"></div>
   <div class="sidebar-header">
     <div class="sidebar-logo">
       <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.67 1.22 5.06 3.17 6.74L4 22l4.62-1.54C9.68 20.8 10.82 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
@@ -622,6 +628,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
     <button class="hdr-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
     <button class="hdr-btn" onclick="openProfile()" title="My profile">👤</button>
     <button class="hdr-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    <button class="hdr-btn" onclick="doLogout()" title="Logout" style="color:var(--danger)">⏻</button>
     <button class="hdr-btn" id="sidebarClose" onclick="closeSidebar()">✕</button>
   </div>
 
@@ -1784,6 +1791,148 @@ socket.emit('getMyGroups', { username });
 setInterval(loadRequests, 5000);
 loadUsers();
 loadRequests();
+
+/* ══════════════════════════════════════════
+   SIDEBAR RESIZE
+══════════════════════════════════════════ */
+(function() {
+  const resizer = document.getElementById('sidebarResizer');
+  const sidebar = document.getElementById('sidebar');
+  let startX, startW;
+
+  resizer.addEventListener('mousedown', e => {
+    startX = e.clientX;
+    startW = sidebar.offsetWidth;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      const newW = Math.min(520, Math.max(200, startW + (e.clientX - startX)));
+      sidebar.style.width = newW + 'px';
+    }
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Touch support
+  resizer.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startW = sidebar.offsetWidth;
+    function onMove(e) {
+      const newW = Math.min(520, Math.max(200, startW + (e.touches[0].clientX - startX)));
+      sidebar.style.width = newW + 'px';
+    }
+    function onEnd() {
+      resizer.removeEventListener('touchmove', onMove);
+      resizer.removeEventListener('touchend', onEnd);
+    }
+    resizer.addEventListener('touchmove', onMove);
+    resizer.addEventListener('touchend', onEnd);
+  });
+})();
+
+/* ══════════════════════════════════════════
+   LOGOUT
+══════════════════════════════════════════ */
+function doLogout() {
+  localStorage.removeItem('username');
+  localStorage.removeItem('myAvatar');
+  localStorage.removeItem('myBio');
+  window.location.href = '/index.html';
+}
+
+/* ══════════════════════════════════════════
+   STORAGE QUOTA CHECK
+══════════════════════════════════════════ */
+async function checkStorageQuota() {
+  try {
+    const res = await fetch(`https://aura-chat-di62.onrender.com/storage-usage?username=${username}`);
+    const data = await res.json();
+    const usedMB = data.usedMB || 0;
+    if (usedMB >= 25) showStorageAlert(usedMB);
+  } catch(e) {}
+}
+
+function showStorageAlert(usedMB) {
+  document.getElementById('storageUsedMB').textContent = usedMB.toFixed(1);
+  document.getElementById('storageModal').classList.add('show');
+}
+
+async function exportAndDeleteData() {
+  const btn = document.getElementById('exportDeleteBtn');
+  btn.disabled = true; btn.textContent = 'Exporting…';
+  try {
+    const res = await fetch(`https://aura-chat-di62.onrender.com/export-data?username=${username}`);
+    const data = await res.json();
+    // Build CSV/Excel content
+    let csv = 'Room,Sender,Message,Image,Timestamp\n';
+    (data.messages || []).forEach(m => {
+      const row = [
+        `"${(m.room||'').replace(/"/g,'""')}"`,
+        `"${(m.username||'').replace(/"/g,'""')}"`,
+        `"${(m.message||'').replace(/"/g,'""')}"`,
+        m.image ? 'yes' : 'no',
+        `"${new Date(m.createdAt).toLocaleString()}"`
+      ];
+      csv += row.join(',') + '\n';
+    });
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `aura-chat-${username}-${Date.now()}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    btn.textContent = 'Downloaded! Deleting…';
+    // Now delete
+    await deleteAllMyData();
+  } catch(e) {
+    showToast('Export failed', 'error');
+    btn.disabled = false; btn.textContent = 'Export & Delete';
+  }
+}
+
+async function deleteAllMyData() {
+  try {
+    await fetch('https://aura-chat-di62.onrender.com/delete-my-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    showToast('All data deleted. Logging out…', 'success');
+    setTimeout(doLogout, 1500);
+  } catch(e) { showToast('Delete failed', 'error'); }
+}
+
+async function skipExportDeleteData() {
+  const ok = await openConfirm('Delete all data?', 'This permanently deletes all your messages. Cannot be undone.', 'Delete All', true);
+  if (!ok) return;
+  await deleteAllMyData();
+}
+
+// Check on load
+setTimeout(checkStorageQuota, 3000);
 </script>
+
+<!-- Storage Alert Modal -->
+<div class="modal-shell" id="storageModal">
+  <div class="modal-box" style="text-align:center">
+    <div style="font-size:2.5rem;margin-bottom:10px">⚠️</div>
+    <h3>Storage Limit Reached</h3>
+    <p>You've used <strong id="storageUsedMB">0</strong> MB of your 25 MB limit. Export your chat history as a CSV file, then your data will be cleared to free up space.</p>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;margin-top:18px">
+      <button class="modal-btn primary" id="exportDeleteBtn" onclick="exportAndDeleteData()">📥 Export Chats &amp; Delete</button>
+      <button class="modal-btn danger-btn" onclick="skipExportDeleteData()">🗑 Just Delete Everything</button>
+      <button class="modal-btn ghost" onclick="document.getElementById('storageModal').classList.remove('show')">Remind Me Later</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

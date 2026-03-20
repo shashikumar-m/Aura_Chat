@@ -227,6 +227,51 @@ app.get('/last-seen', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── STORAGE USAGE ──
+app.get('/storage-usage', async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
+    // Get all rooms this user participates in
+    const msgs = await Message.find({
+      $or: [{ username }, { room: { $regex: username } }]
+    }, 'message image');
+    let bytes = 0;
+    msgs.forEach(m => {
+      bytes += Buffer.byteLength(m.message || '', 'utf8');
+      bytes += Buffer.byteLength(m.image || '', 'utf8');
+    });
+    const usedMB = bytes / (1024 * 1024);
+    res.json({ usedMB: parseFloat(usedMB.toFixed(2)) });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── EXPORT DATA ──
+app.get('/export-data', async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
+    const messages = await Message.find({
+      $or: [{ username }, { room: { $regex: username } }]
+    }).sort({ createdAt: 1 }).lean();
+    res.json({ messages });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── DELETE ALL USER DATA ──
+app.post('/delete-my-data', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
+    // Delete all messages sent by user or in their DM rooms
+    const dmRooms = await Message.distinct('room', { username });
+    await Message.deleteMany({ $or: [{ username }, { room: { $in: dmRooms } }] });
+    // Delete requests
+    await Request.deleteMany({ $or: [{ from: username }, { to: username }] });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
 // ────────────────────────────────────────────────────────────
 //  SOCKET.IO
 // ────────────────────────────────────────────────────────────

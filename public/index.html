@@ -286,8 +286,120 @@
       .tagline { font-size: 1.75rem; }
     }
   </style>
+
+  <style>
+    /* ── SPLASH SCREEN ── */
+    #splash{position:fixed;inset:0;z-index:99999;background:#0d0d12;
+      display:flex;align-items:center;justify-content:center;
+      transition:opacity 0.6s ease, visibility 0.6s ease}
+    #splash.hide{opacity:0;visibility:hidden;pointer-events:none}
+
+    .logo-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:300px;height:420px}
+    .aura-ring{position:absolute;width:230px;height:230px;border-radius:60px;
+      border:2px solid transparent;
+      background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+                 linear-gradient(var(--a,0deg),#6366f1,#c084fc,#f472b6,#6366f1) border-box;
+      animation:spinRing 3s linear infinite;top:30px}
+    @keyframes spinRing{to{--a:360deg}0%{filter:brightness(1)}50%{filter:brightness(1.4)}100%{filter:brightness(1)}}
+    .aura-ring2{position:absolute;width:255px;height:255px;border-radius:70px;
+      border:1px solid transparent;
+      background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+                 linear-gradient(var(--b,180deg),#a78bfa,#f472b6,#6366f1,#a78bfa) border-box;
+      animation:spinRing2 4s linear infinite reverse;top:17px}
+    @keyframes spinRing2{to{--b:540deg}}
+    .glow-bg{position:absolute;width:200px;height:200px;border-radius:55px;
+      background:radial-gradient(ellipse,rgba(99,102,241,0.35) 0%,transparent 70%);
+      animation:splashPulse 2s ease-in-out infinite;top:50px}
+    @keyframes splashPulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.15);opacity:1}}
+    .logo-square{position:absolute;width:190px;height:190px;border-radius:52px;
+      background:linear-gradient(135deg,#4f5de8,#8b5cf6,#c084fc);
+      display:flex;align-items:center;justify-content:center;
+      animation:squarePop 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
+      top:55px;overflow:hidden}
+    @keyframes squarePop{from{opacity:0;transform:scale(0.5) rotate(-10deg)}to{opacity:1;transform:scale(1) rotate(0deg)}}
+    .logo-square::after{content:'';position:absolute;inset:0;
+      background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.18) 50%,transparent 60%);
+      background-size:200% 100%;animation:shine 2.5s ease-in-out infinite;border-radius:52px}
+    @keyframes shine{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .wm-t{position:absolute;top:10px;left:16px;font-family:Georgia,serif;font-size:20px;
+      font-weight:700;color:rgba(255,255,255,0.2);animation:wmPop 0.5s ease 0.8s both}
+    .wm-n{position:absolute;bottom:10px;right:16px;font-family:Georgia,serif;font-size:20px;
+      font-weight:700;color:rgba(255,255,255,0.2);animation:wmPop 0.5s ease 1s both}
+    @keyframes wmPop{from{opacity:0}to{opacity:1}}
+    .s-bubble{position:absolute;background:white;border-radius:26px;width:148px;height:88px;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      animation:bubbleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.3s both}
+    @keyframes bubbleIn{from{opacity:0;transform:scale(0.6)}to{opacity:1;transform:scale(1)}}
+    .s-bubble::after{content:'';position:absolute;bottom:-18px;left:22px;
+      width:0;height:0;border-left:14px solid transparent;
+      border-right:6px solid transparent;border-top:20px solid white}
+    .s-dot{width:18px;height:18px;border-radius:50%;animation:dotBounce 1.4s ease-in-out infinite}
+    .s-dot-l{background:#6366f1;animation-delay:0s}
+    .s-dot-m{width:22px;height:22px;background:linear-gradient(135deg,#f472b6,#c084fc);
+      display:flex;align-items:center;justify-content:center;
+      font-family:Georgia,serif;font-size:13px;font-weight:700;color:white;animation-delay:0.2s}
+    .s-dot-r{background:#c084fc;animation-delay:0.4s}
+    @keyframes dotBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-7px)}}
+    .bubble-sm{position:absolute;background:rgba(255,255,255,0.22);border-radius:16px;
+      width:72px;height:40px;top:12px;right:8px;
+      display:flex;align-items:center;justify-content:center;gap:5px;
+      animation:bubbleIn 0.5s ease 0.6s both}
+    .bubble-sm::after{content:'';position:absolute;bottom:-10px;right:10px;
+      width:0;height:0;border-left:8px solid transparent;border-top:12px solid rgba(255,255,255,0.22)}
+    .sm-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.75);
+      animation:dotBounce 1.4s ease-in-out infinite}
+    .sm-dot:nth-child(2){animation-delay:0.15s}
+    .sm-dot:nth-child(3){animation-delay:0.3s}
+    .s-wordmark{position:absolute;bottom:30px;text-align:center;animation:fadeUpSplash 0.6s ease 0.9s both}
+    @keyframes fadeUpSplash{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    .word-aura{font-family:'Trebuchet MS',sans-serif;font-size:38px;font-weight:700;
+      background:linear-gradient(90deg,#6366f1,#a855f7);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      background-clip:text;letter-spacing:5px}
+    .word-chat{font-family:'Trebuchet MS',sans-serif;font-size:20px;font-weight:400;
+      color:#8b5cf6;letter-spacing:10px;margin-top:-4px}
+    .tagline-pill{display:inline-block;margin-top:6px;padding:4px 14px;
+      border:1px solid rgba(168,85,247,0.35);border-radius:20px;
+      font-family:'Trebuchet MS',sans-serif;font-size:9px;color:#a855f7;
+      letter-spacing:2.5px;background:rgba(168,85,247,0.07)}
+    @property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+    @property --b{syntax:'<angle>';initial-value:180deg;inherits:false}
+  </style>
 </head>
 <body>
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <div class="logo-wrap">
+    <div class="aura-ring2"></div>
+    <div class="aura-ring"></div>
+    <div class="glow-bg"></div>
+    <div class="logo-square">
+      <span class="wm-t">T</span>
+      <span class="wm-n">N</span>
+      <div class="bubble-sm">
+        <div class="sm-dot"></div>
+        <div class="sm-dot"></div>
+        <div class="sm-dot"></div>
+      </div>
+      <div class="s-bubble">
+        <div class="s-dot s-dot-l"></div>
+        <div class="s-dot s-dot-m">S</div>
+        <div class="s-dot s-dot-r"></div>
+      </div>
+    </div>
+    <div class="s-wordmark">
+      <div class="word-aura">AURA</div>
+      <div class="word-chat">CHAT</div>
+      <div class="tagline-pill">CONNECT · VIBE · GLOW</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Hide splash after 2.8s
+  setTimeout(() => document.getElementById('splash').classList.add('hide'), 2800);
+</script>
 
 <div id="toast-wrap"></div>
 <div class="blob blob-1"></div>
