@@ -778,7 +778,7 @@ socket.on('userStopTyping',d=>{
    LOAD USERS
 ══════════════════════════════════════════ */
 async function loadUsers(){
-  const users=await(await fetch('/users')).json();
+  const users=await(await fetch('https://aura-chat-di62.onrender.com/users')).json();
   const list=document.getElementById('userList');
   list.innerHTML="";
   users.forEach(u=>{if(u.username!==username) addUserToList(u);});
