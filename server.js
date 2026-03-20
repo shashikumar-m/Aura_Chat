@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema({
   username:  { type: String, required: true, unique: true, trim: true },
   avatar:    { type: String, default: '' },
   bio:       { type: String, default: '' },
+  password:  { type: String, default: '' },
   lastSeen:  { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
@@ -90,17 +91,38 @@ const socketToUser = new Map();  // socketId -> username
 //  REST ENDPOINTS
 // ────────────────────────────────────────────────────────────
 
-// Register or get user
+// ── LOGIN ──
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password)
+      return res.status(400).json({ error: 'Username and password required' });
+    const user = await User.findOne({ username: username.trim() });
+    if (!user)
+      return res.status(404).json({ error: 'User not found. Please register first.' });
+    if (user.password !== password)
+      return res.status(401).json({ error: 'Incorrect password' });
+    res.json({ success: true, username: user.username, avatar: user.avatar, bio: user.bio });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── REGISTER ──
 app.post('/register', async (req, res) => {
   try {
-    const { username } = req.body;
+    const { username, password } = req.body;
     if (!username || username.trim().length < 2)
-      return res.status(400).json({ error: 'Username too short' });
-    let user = await User.findOne({ username: username.trim() });
-    if (!user) user = await User.create({ username: username.trim() });
-    res.json({ success: true, user });
+      return res.status(400).json({ error: 'Username must be at least 2 characters' });
+    if (!password || password.length < 4)
+      return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    const exists = await User.findOne({ username: username.trim() });
+    if (exists)
+      return res.status(409).json({ error: 'Username already taken' });
+    const user = await User.create({ username: username.trim(), password });
+    res.json({ success: true, username: user.username });
   } catch (e) {
-    if (e.code === 11000) return res.status(409).json({ error: 'Username taken' });
+    if (e.code === 11000) return res.status(409).json({ error: 'Username already taken' });
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -193,6 +215,15 @@ app.get('/last-seen', async (req, res) => {
 // ────────────────────────────────────────────────────────────
 //  SOCKET.IO
 // ────────────────────────────────────────────────────────────
+
+// ── SERVE LOGIN PAGE ──
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// ── AUTH GUARD: redirect to login if no username cookie ──
+// (Frontend handles this via localStorage — server just serves the pages)
+
 io.on('connection', (socket) => {
   console.log('🔌 Socket connected:', socket.id);
 

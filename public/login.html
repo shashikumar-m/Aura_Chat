@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Aura Chat — Login</title>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#5b6af7"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d12;--surface:#1a1a24;--surface2:#202030;
+  --border:rgba(255,255,255,0.08);--accent:#5b6af7;
+  --text:#eeeef5;--muted:rgba(238,238,245,0.45);
+  --danger:#f87171;--success:#4ade80;--shadow:rgba(0,0,0,0.5);
+}
+html,body{height:100%;height:100dvh;background:var(--bg);color:var(--text);
+  font-family:'Instrument Sans',sans-serif;overflow:hidden}
+
+/* animated background */
+body::before{content:'';position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 100%, rgba(91,106,247,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 0%,   rgba(167,139,250,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 60% 60%,  rgba(247,195,91,0.05) 0%, transparent 60%);
+  animation:bgShift 8s ease-in-out infinite alternate;pointer-events:none}
+@keyframes bgShift{
+  0%  {opacity:1;transform:scale(1)}
+  100%{opacity:0.7;transform:scale(1.04)}
+}
+body::after{content:'';position:fixed;inset:0;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  background-size:200px;pointer-events:none}
+
+/* card */
+.card-wrap{position:relative;z-index:1;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:24px;
+  padding:36px 32px;width:100%;max-width:380px;
+  box-shadow:0 32px 80px var(--shadow);
+  animation:cardIn 0.5s cubic-bezier(0.22,1,0.36,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(24px) scale(0.97)}to{opacity:1;transform:none}}
+
+/* logo */
+.logo{width:60px;height:60px;background:linear-gradient(135deg,#5b6af7,#a78bfa);
+  border-radius:18px;display:flex;align-items:center;justify-content:center;
+  font-size:1.7rem;margin:0 auto 18px;
+  box-shadow:0 8px 28px rgba(91,106,247,0.35);
+  animation:logoPop 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.1s both}
+@keyframes logoPop{from{opacity:0;transform:scale(0.6)}to{opacity:1;transform:scale(1)}}
+
+h1{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;
+  text-align:center;margin-bottom:4px}
+.subtitle{text-align:center;font-size:0.82rem;color:var(--muted);margin-bottom:28px}
+
+/* tabs */
+.tabs{display:flex;background:var(--surface2);border-radius:12px;padding:4px;margin-bottom:24px;gap:4px}
+.tab{flex:1;padding:9px;border:none;border-radius:9px;background:none;
+  color:var(--muted);font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;
+  cursor:pointer;transition:all 0.18s;letter-spacing:0.04em;text-transform:uppercase}
+.tab.active{background:var(--surface);color:var(--text);
+  box-shadow:0 2px 12px rgba(0,0,0,0.25)}
+
+/* form */
+.form-group{margin-bottom:14px}
+label{display:block;font-size:0.75rem;font-weight:500;color:var(--muted);
+  margin-bottom:6px;letter-spacing:0.03em;text-transform:uppercase}
+.input-wrap{position:relative}
+.input-wrap .icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  font-size:0.95rem;pointer-events:none}
+input[type=text],input[type=password]{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:12px;padding:12px 14px 12px 38px;color:var(--text);
+  font-family:'Instrument Sans',sans-serif;font-size:0.95rem;
+  outline:none;transition:border 0.2s,box-shadow 0.2s}
+input:focus{border-color:rgba(91,106,247,0.6);box-shadow:0 0 0 3px rgba(91,106,247,0.12)}
+input::placeholder{color:var(--muted)}
+
+/* password toggle */
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:2px 4px}
+.pw-toggle:hover{color:var(--text)}
+
+/* submit button */
+.submit-btn{width:100%;padding:13px;margin-top:6px;
+  background:linear-gradient(135deg,#5b6af7,#818cf8);
+  border:none;border-radius:13px;color:#fff;
+  font-family:'Syne',sans-serif;font-size:0.92rem;font-weight:700;
+  cursor:pointer;letter-spacing:0.04em;
+  box-shadow:0 6px 20px rgba(91,106,247,0.35);
+  transition:transform 0.12s,opacity 0.12s;position:relative;overflow:hidden}
+.submit-btn:hover{opacity:0.92}
+.submit-btn:active{transform:scale(0.97)}
+.submit-btn:disabled{opacity:0.55;cursor:not-allowed}
+.submit-btn .btn-text{transition:opacity 0.15s}
+.submit-btn .spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,0.4);
+  border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.submit-btn.loading .btn-text{opacity:0}
+.submit-btn.loading .spinner{display:block}
+
+/* error / success msg */
+.msg-box{padding:10px 14px;border-radius:10px;font-size:0.82rem;
+  margin-top:12px;display:none;align-items:center;gap:8px}
+.msg-box.show{display:flex}
+.msg-box.error{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:var(--danger)}
+.msg-box.success{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);color:var(--success)}
+
+/* divider */
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0 0;color:var(--muted);font-size:0.75rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* footer note */
+.footer-note{text-align:center;font-size:0.72rem;color:var(--muted);margin-top:20px;line-height:1.6}
+.footer-note a{color:var(--accent);text-decoration:none}
+
+/* strength bar */
+.strength-wrap{margin-top:6px;display:none}
+.strength-bar{height:3px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-bottom:4px}
+.strength-fill{height:100%;border-radius:4px;transition:width 0.3s,background 0.3s;width:0%}
+.strength-label{font-size:0.68rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="card-wrap">
+  <div class="card">
+    <div class="logo">💬</div>
+    <h1>Aura Chat</h1>
+    <p class="subtitle">Connect with anyone, anywhere</p>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tabLogin"    onclick="switchTab('login')">Sign In</button>
+      <button class="tab"        id="tabRegister" onclick="switchTab('register')">Sign Up</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label>Username</label>
+        <div class="input-wrap">
+          <span class="icon">👤</span>
+          <input type="text" id="loginUser" placeholder="Enter your username" autocomplete="username" autocapitalize="off"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="input-wrap">
+          <span class="icon">🔒</span>
+          <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password"/>
+          <button class="pw-toggle" type="button" onclick="togglePw('loginPass',this)">👁</button>
+        </div>
+      </div>
+      <button class="submit-btn" id="loginBtn" onclick="doLogin()">
+        <span class="btn-text">Sign In →</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="msg-box" id="loginMsg"></div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="registerForm" style="display:none">
+      <div class="form-group">
+        <label>Choose a Username</label>
+        <div class="input-wrap">
+          <span class="icon">👤</span>
+          <input type="text" id="regUser" placeholder="e.g. cooluser123" autocomplete="username" autocapitalize="off" oninput="checkUsername()"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="input-wrap">
+          <span class="icon">🔒</span>
+          <input type="password" id="regPass" placeholder="At least 4 characters" autocomplete="new-password" oninput="checkStrength()"/>
+          <button class="pw-toggle" type="button" onclick="togglePw('regPass',this)">👁</button>
+        </div>
+        <div class="strength-wrap" id="strengthWrap">
+          <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+          <div class="strength-label" id="strengthLabel"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <div class="input-wrap">
+          <span class="icon">🔒</span>
+          <input type="password" id="regPass2" placeholder="Repeat your password" autocomplete="new-password"/>
+          <button class="pw-toggle" type="button" onclick="togglePw('regPass2',this)">👁</button>
+        </div>
+      </div>
+      <button class="submit-btn" id="registerBtn" onclick="doRegister()">
+        <span class="btn-text">Create Account →</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="msg-box" id="registerMsg"></div>
+    </div>
+
+    <div class="divider">end-to-end encrypted</div>
+    <p class="footer-note">By continuing you agree to our <a href="#">Terms</a> &amp; <a href="#">Privacy Policy</a></p>
+  </div>
+</div>
+
+<script>
+const SERVER = '';  // empty = same origin. Change to 'https://aura-chat-di62.onrender.com' if needed
+
+function switchTab(tab) {
+  document.getElementById('loginForm').style.display    = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('tabLogin').classList.toggle('active',    tab === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+  clearMsgs();
+}
+
+function clearMsgs() {
+  ['loginMsg','registerMsg'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'msg-box'; el.textContent = '';
+  });
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.innerHTML = (type === 'error' ? '❌ ' : '✅ ') + text;
+  el.className = 'msg-box show ' + type;
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.classList.toggle('loading', loading);
+}
+
+function togglePw(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function checkStrength() {
+  const pw = document.getElementById('regPass').value;
+  const wrap = document.getElementById('strengthWrap');
+  const fill = document.getElementById('strengthFill');
+  const label = document.getElementById('strengthLabel');
+  if (!pw) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  let score = 0;
+  if (pw.length >= 4)  score++;
+  if (pw.length >= 8)  score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    { w: '20%',  bg: '#f87171', text: 'Very weak' },
+    { w: '40%',  bg: '#fb923c', text: 'Weak' },
+    { w: '60%',  bg: '#facc15', text: 'Fair' },
+    { w: '80%',  bg: '#4ade80', text: 'Strong' },
+    { w: '100%', bg: '#4ade80', text: 'Very strong' },
+  ];
+  const l = levels[Math.min(score - 1, 4)] || levels[0];
+  fill.style.width = l.w; fill.style.background = l.bg;
+  label.textContent = l.text; label.style.color = l.bg;
+}
+
+function checkUsername() {
+  // Could do a live availability check here
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!username || !password) { showMsg('loginMsg', 'Please fill in both fields', 'error'); return; }
+
+  setLoading('loginBtn', true);
+  clearMsgs();
+
+  try {
+    const res  = await fetch(SERVER + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg('loginMsg', data.error || 'Login failed', 'error');
+      return;
+    }
+
+    // Save to localStorage and redirect
+    localStorage.setItem('username', data.username);
+    if (data.avatar) localStorage.setItem('myAvatar', data.avatar);
+    if (data.bio)    localStorage.setItem('myBio', data.bio);
+
+    showMsg('loginMsg', 'Welcome back, ' + data.username + '!', 'success');
+    setTimeout(() => { window.location.href = '/'; }, 700);
+
+  } catch (e) {
+    showMsg('loginMsg', 'Could not connect to server', 'error');
+  } finally {
+    setLoading('loginBtn', false);
+  }
+}
+
+async function doRegister() {
+  const username = document.getElementById('regUser').value.trim();
+  const password = document.getElementById('regPass').value;
+  const password2 = document.getElementById('regPass2').value;
+
+  if (!username) { showMsg('registerMsg', 'Please enter a username', 'error'); return; }
+  if (username.length < 2) { showMsg('registerMsg', 'Username must be at least 2 characters', 'error'); return; }
+  if (!password || password.length < 4) { showMsg('registerMsg', 'Password must be at least 4 characters', 'error'); return; }
+  if (password !== password2) { showMsg('registerMsg', "Passwords don't match", 'error'); return; }
+
+  setLoading('registerBtn', true);
+  clearMsgs();
+
+  try {
+    const res  = await fetch(SERVER + '/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg('registerMsg', data.error || 'Registration failed', 'error');
+      return;
+    }
+
+    showMsg('registerMsg', 'Account created! Signing you in…', 'success');
+    localStorage.setItem('username', data.username);
+    setTimeout(() => { window.location.href = '/'; }, 900);
+
+  } catch (e) {
+    showMsg('registerMsg', 'Could not connect to server', 'error');
+  } finally {
+    setLoading('registerBtn', false);
+  }
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const loginVisible = document.getElementById('loginForm').style.display !== 'none';
+  if (loginVisible) doLogin();
+  else doRegister();
+});
+
+// Auto-redirect if already logged in
+if (localStorage.getItem('username')) {
+  window.location.href = '/';
+}
+</script>
+</body>
+</html>
