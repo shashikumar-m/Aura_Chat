@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Aura Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: rgba(255,255,255,0.07);
+      --accent: #c8a96e;
+      --accent2: #7e6cf2;
+      --text: #f0ede6;
+      --muted: rgba(240,237,230,0.45);
+    }
+
+    html { height: 100%; }
+    body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Grain ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size: 180px; pointer-events: none; opacity: .6;
+    }
+
+    /* ── Ambient blobs ── */
+    .blob { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
+    .blob-1 {
+      width: 420px; height: 420px;
+      background: radial-gradient(circle, rgba(126,108,242,0.22) 0%, transparent 70%);
+      top: -120px; right: -80px;
+      animation: drift1 14s ease-in-out infinite alternate;
+    }
+    .blob-2 {
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(200,169,110,0.18) 0%, transparent 70%);
+      bottom: -60px; left: -60px;
+      animation: drift2 18s ease-in-out infinite alternate;
+    }
+    @keyframes drift1 { from{transform:translate(0,0) scale(1)} to{transform:translate(-24px,32px) scale(1.08)} }
+    @keyframes drift2 { from{transform:translate(0,0) scale(1)} to{transform:translate(32px,-24px) scale(1.1)} }
+
+    /* ══════════════════════════════════
+       PAGE LAYOUT  — desktop: side-by-side
+    ══════════════════════════════════ */
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* ── LEFT PANEL ── */
+    .left {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 64px 64px;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 60px;
+      animation: fadeUp 0.7s ease both;
+    }
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .logo-mark svg { width: 18px; height: 18px; fill: #fff; }
+    .logo-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem; font-weight: 700; letter-spacing: 0.02em;
+    }
+
+    .tagline {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 3.6vw, 3.2rem);
+      font-weight: 900; line-height: 1.1;
+      margin-bottom: 20px;
+      animation: fadeUp 0.7s 0.15s ease both;
+    }
+    .tagline em {
+      font-style: italic;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .sub {
+      color: var(--muted); font-size: 0.95rem; font-weight: 300; line-height: 1.75;
+      max-width: 320px; margin-bottom: 48px;
+      animation: fadeUp 0.7s 0.28s ease both;
+    }
+
+    /* decorative bubbles */
+    .bubbles { display: flex; flex-direction: column; gap: 10px; animation: fadeUp 0.7s 0.4s ease both; }
+    .bubble {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 9px 16px; border-radius: 20px;
+      font-size: 0.83rem; width: fit-content;
+    }
+    .bubble-in  { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .bubble-out { background: linear-gradient(135deg,rgba(126,108,242,0.25),rgba(200,169,110,0.15));
+                  border: 1px solid rgba(126,108,242,0.3); border-bottom-right-radius: 4px; align-self: flex-end; }
+    .av { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+          justify-content: center; font-size: 0.6rem; font-weight: 700; flex-shrink: 0; }
+    .av-a { background: linear-gradient(135deg,#7e6cf2,#a78bfa); }
+    .av-b { background: linear-gradient(135deg,#c8a96e,#f0c27f); color: #1a0f00; }
+
+    /* ── RIGHT PANEL ── */
+    .right {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 64px 64px;
+    }
+
+    .card { width: 100%; max-width: 380px; animation: fadeUp 0.8s 0.1s ease both; }
+
+    .card-head { margin-bottom: 32px; }
+    .card-head h2 { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 700; margin-bottom: 5px; }
+    .card-head p  { color: var(--muted); font-size: 0.86rem; font-weight: 300; }
+
+    /* Tabs */
+    .tabs { display: flex; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 4px; margin-bottom: 28px; }
+    .tab { flex: 1; padding: 9px 0; background: none; border: none; cursor: pointer;
+           color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.86rem;
+           font-weight: 500; border-radius: 9px; transition: all 0.25s; }
+    .tab.active {
+      background: linear-gradient(135deg, rgba(126,108,242,0.35), rgba(200,169,110,0.2));
+      color: var(--text); box-shadow: 0 2px 12px rgba(126,108,242,0.2);
+    }
+
+    /* Form */
+    .panel { display: none; }
+    .panel.active { display: flex; flex-direction: column; gap: 14px; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 0.74rem; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .field input {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 15px; color: var(--text); font-family: 'DM Sans', sans-serif;
+      font-size: 16px; /* prevent iOS zoom */ outline: none;
+      transition: border 0.2s, box-shadow 0.2s;
+    }
+    .field input::placeholder { color: rgba(240,237,230,0.2); }
+    .field input:focus { border-color: rgba(126,108,242,0.6); box-shadow: 0 0 0 3px rgba(126,108,242,0.12); }
+
+    /* Error message */
+    .field-error { font-size: 0.74rem; color: #f87171; margin-top: -8px; display: none; }
+    .field-error.show { display: block; }
+
+    /* loading spinner on button */
+    .btn-primary {
+      margin-top: 4px; padding: 13px; border: none; border-radius: 12px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; font-size: 0.93rem; font-weight: 500;
+      letter-spacing: 0.03em; background: linear-gradient(135deg, var(--accent2), #a78bfa);
+      color: #fff; position: relative; overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.2s, opacity 0.15s;
+      box-shadow: 0 4px 20px rgba(126,108,242,0.35);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(126,108,242,0.45); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+               border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.76rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .btn-ghost {
+      padding: 11px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; cursor: pointer; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 0.86rem;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background 0.2s, border 0.2s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); }
+    .btn-ghost svg { width: 17px; height: 17px; }
+
+    .footer-note { text-align: center; color: var(--muted); font-size: 0.78rem; }
+    .footer-note a { color: var(--accent); text-decoration: none; }
+    .footer-note a:hover { text-decoration: underline; }
+
+    /* toast */
+    #toast-wrap { position: fixed; top: 14px; right: 14px; z-index: 9999;
+                  display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 28px); }
+    .toast { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+             padding: 10px 16px; font-size: 0.81rem; display: flex; align-items: center; gap: 9px;
+             box-shadow: 0 8px 28px rgba(0,0,0,0.4); animation: toastIn 0.25s ease both; }
+    @keyframes toastIn  { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:translateX(0)} }
+    .toast.fadeout      { animation: toastOut 0.25s ease both; }
+    @keyframes toastOut { to{opacity:0;transform:translateX(12px)} }
+    .toast-success { border-left: 3px solid #4ade80; }
+    .toast-error   { border-left: 3px solid #f87171; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══════════════════════════════════
+       TABLET  ≤ 860px
+    ══════════════════════════════════ */
+    @media (max-width: 860px) {
+      .left { padding: 48px 40px; }
+      .right { padding: 48px 40px; }
+      .tagline { font-size: clamp(1.8rem, 4.5vw, 2.6rem); }
+    }
+
+    /* ══════════════════════════════════
+       MOBILE  ≤ 640px  — stacked layout
+    ══════════════════════════════════ */
+    @media (max-width: 640px) {
+      body { overflow-y: auto; }
+
+      .page {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        min-height: 100dvh;
+      }
+
+      /* LEFT becomes a compact hero strip */
+      .left {
+        padding: 40px 24px 32px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        justify-content: flex-start;
+      }
+
+      .logo { margin-bottom: 28px; }
+
+      .tagline {
+        font-size: 2.1rem;
+        margin-bottom: 14px;
+      }
+
+      .sub {
+        font-size: 0.88rem;
+        margin-bottom: 28px;
+        max-width: 100%;
+      }
+
+      /* hide decorative bubbles on very small screens to save space */
+      .bubbles { display: none; }
+
+      /* RIGHT becomes the form section below */
+      .right {
+        padding: 32px 24px 48px;
+        align-items: stretch;
+      }
+
+      .card {
+        max-width: 100%;
+        animation: none; /* prevent flash on scroll */
+      }
+
+      .card-head { margin-bottom: 24px; }
+      .card-head h2 { font-size: 1.5rem; }
+
+      .blob-1 { width: 260px; height: 260px; top: -80px; right: -60px; }
+      .blob-2 { width: 200px; height: 200px; }
+    }
+
+    /* ══════════════════════════════════
+       VERY SMALL  ≤ 380px
+    ══════════════════════════════════ */
+    @media (max-width: 380px) {
+      .left  { padding: 32px 18px 24px; }
+      .right { padding: 24px 18px 40px; }
+      .tagline { font-size: 1.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toast-wrap"></div>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="page">
+
+  <!-- ═══ LEFT ═══ -->
+  <div class="left">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.67 1.22 5.06 3.17 6.74L4 22l4.62-1.54C9.68 20.8 10.82 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
+      </div>
+      <span class="logo-name">Aura Chat</span>
+    </div>
+
+    <h1 class="tagline">Connect with<br><em>everyone,</em><br>effortlessly.</h1>
+    <p class="sub">A modern messaging experience designed around the people you love. Fast, private, and beautifully crafted.</p>
+
+    <div class="bubbles">
+      <div class="bubble bubble-in"><div class="av av-a">A</div>Hey! Are you free tonight? 🌙</div>
+      <div class="bubble bubble-out">Always, for you! ✨<div class="av av-b">B</div></div>
+      <div class="bubble bubble-in"><div class="av av-a">A</div>Let's catch up on the call 📞</div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT ═══ -->
+  <div class="right">
+    <div class="card">
+
+      <div class="card-head">
+        <h2 id="cardTitle">Welcome back</h2>
+        <p id="cardSub">Sign in to continue your conversations</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('login',this)">Sign In</button>
+        <button class="tab"        onclick="switchTab('register',this)">Register</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="login-panel" class="panel active">
+        <div class="field">
+          <label>Username</label>
+          <input id="loginUsername" type="text" placeholder="Enter username" autocomplete="username"/>
+          <span class="field-error" id="loginUserErr"></span>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password"/>
+          <span class="field-error" id="loginPassErr"></span>
+        </div>
+        <button class="btn-primary" id="loginBtn" onclick="login()">
+          <span class="spinner" id="loginSpinner"></span>
+          <span id="loginBtnText">Sign In →</span>
+        </button>
+        <div class="divider">or continue with</div>
+        <button class="btn-ghost" onclick="showToast('Google sign-in coming soon!','error')">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+        <div class="footer-note">No account? <a href="#" onclick="switchTabByName('register')">Create one</a></div>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="register-panel" class="panel">
+        <div class="field">
+          <label>Username</label>
+          <input id="regUsername" type="text" placeholder="Choose a username" autocomplete="username"/>
+          <span class="field-error" id="regUserErr"></span>
+        </div>
+        <div class="field">
+          <label>Email <span style="opacity:0.45;font-size:0.7rem">(optional)</span></label>
+          <input id="regEmail" type="email" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="regPassword" type="password" placeholder="Create a password" autocomplete="new-password"/>
+          <span class="field-error" id="regPassErr"></span>
+        </div>
+        <button class="btn-primary" id="regBtn" onclick="register()">
+          <span class="spinner" id="regSpinner"></span>
+          <span id="regBtnText">Create Account →</span>
+        </button>
+        <div class="divider">or</div>
+        <button class="btn-ghost" onclick="showToast('Google sign-up coming soon!','error')">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign up with Google
+        </button>
+        <div class="footer-note">Already have an account? <a href="#" onclick="switchTabByName('login')">Sign in</a></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── Tab switching ── */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(name + '-panel').classList.add('active');
+  const titles = {
+    login:    ['Welcome back',    'Sign in to continue your conversations'],
+    register: ['Create account',  'Join Aura and start connecting today']
+  };
+  document.getElementById('cardTitle').textContent = titles[name][0];
+  document.getElementById('cardSub').textContent   = titles[name][1];
+  clearErrors();
+}
+function switchTabByName(name) {
+  const idx = name === 'login' ? 0 : 1;
+  switchTab(name, document.querySelectorAll('.tab')[idx]);
+  return false;
+}
+
+/* ── Toast ── */
+function showToast(msg, type = 'success') {
+  const icons = { success: '✅', error: '❌' };
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('toast-wrap').appendChild(t);
+  setTimeout(() => { t.classList.add('fadeout'); setTimeout(() => t.remove(), 280); }, 3200);
+}
+
+/* ── Inline validation ── */
+function clearErrors() {
+  document.querySelectorAll('.field-error').forEach(e => e.classList.remove('show'));
+}
+function showFieldErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+}
+function setLoading(btnId, spinnerId, textId, loading, label) {
+  const btn = document.getElementById(btnId);
+  const sp  = document.getElementById(spinnerId);
+  const tx  = document.getElementById(textId);
+  btn.disabled = loading;
+  sp.style.display  = loading ? 'block' : 'none';
+  tx.textContent    = loading ? 'Please wait…' : label;
+}
+
+/* ── Enter key submits ── */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const loginActive = document.getElementById('login-panel').classList.contains('active');
+  if (loginActive) login(); else register();
+});
+
+/* ── LOGIN ── */
+async function login() {
+  clearErrors();
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  let valid = true;
+  if (!username) { showFieldErr('loginUserErr', 'Username is required'); valid = false; }
+  if (!password) { showFieldErr('loginPassErr', 'Password is required'); valid = false; }
+  if (!valid) return;
+
+  setLoading('loginBtn','loginSpinner','loginBtnText', true, 'Sign In →');
+  try {
+    const res  = await fetch('/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem("username", username);
+      showToast('Welcome back, ' + username + '! 🎉');
+      setTimeout(() => window.location.href = "chat.html", 900);
+    } else {
+      showToast(data.message || 'Login failed', 'error');
+      if ((data.message||'').toLowerCase().includes('password')) showFieldErr('loginPassErr', data.message);
+      else showFieldErr('loginUserErr', data.message || 'User not found');
+    }
+  } catch {
+    showToast('Network error — is the server running?', 'error');
+  } finally {
+    setLoading('loginBtn','loginSpinner','loginBtnText', false, 'Sign In →');
+  }
+}
+
+/* ── REGISTER ── */
+async function register() {
+  clearErrors();
+  const username = document.getElementById('regUsername').value.trim();
+  const password = document.getElementById('regPassword').value;
+  let valid = true;
+  if (!username)         { showFieldErr('regUserErr','Username is required'); valid = false; }
+  else if (username.length < 3) { showFieldErr('regUserErr','Min 3 characters'); valid = false; }
+  if (!password)         { showFieldErr('regPassErr','Password is required'); valid = false; }
+  else if (password.length < 6) { showFieldErr('regPassErr','Min 6 characters'); valid = false; }
+  if (!valid) return;
+
+  setLoading('regBtn','regSpinner','regBtnText', true, 'Create Account →');
+  try {
+    const res  = await fetch('/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Account created! Please sign in ✨');
+      setTimeout(() => switchTabByName('login'), 800);
+    } else {
+      showToast(data.message || 'Registration failed', 'error');
+      showFieldErr('regUserErr', data.message || 'Username may already exist');
+    }
+  } catch {
+    showToast('Network error — is the server running?', 'error');
+  } finally {
+    setLoading('regBtn','regSpinner','regBtnText', false, 'Create Account →');
+  }
+}
+</script>
+</body>
+</html>
