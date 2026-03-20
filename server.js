@@ -6,12 +6,16 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
 const onlineUsers = {};
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
-
+const io = new Server(server, {
+    cors: {
+        origin: "*"
+    }
+});
 
 
 // ================== MONGODB ==================
@@ -47,7 +51,7 @@ const User = mongoose.model('User', userSchema);
 // ================== AUTH ROUTES ==================
 
 // REGISTER
-app.post('/register', async (req, res) => {
+app.post('https://aura-chat-di62.onrender.com/register', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -79,7 +83,7 @@ app.post('/register', async (req, res) => {
 });
 
 // LOGIN
-app.post('/login', async (req, res) => {
+app.post('https://aura-chat-di62.onrender.com/login', async (req, res) => {
     const { username, password } = req.body;
 
     try {
@@ -111,7 +115,7 @@ app.post('/login', async (req, res) => {
 
 
 
-app.post('/send-request', async (req, res) => {
+app.post('https://aura-chat-di62.onrender.com/send-request', async (req, res) => {
     const { from, to } = req.body;
 
     const exists = await ChatRequest.findOne({
@@ -149,7 +153,7 @@ const chatRequestSchema = new mongoose.Schema({
 
 const ChatRequest = mongoose.model('ChatRequest', chatRequestSchema);
 
-app.get('/requests', async (req, res) => {
+app.get('https://aura-chat-di62.onrender.com/requests', async (req, res) => {
     const { username } = req.query;
 
     const requests = await ChatRequest.find({
@@ -159,7 +163,7 @@ app.get('/requests', async (req, res) => {
 
     res.json(requests);
 });
-app.post('/reject-request', async (req, res) => {
+app.post('https://aura-chat-di62.onrender.com/reject-request', async (req, res) => {
     const { from, to } = req.body;
 
     await ChatRequest.findOneAndUpdate(
@@ -169,7 +173,7 @@ app.post('/reject-request', async (req, res) => {
 
     res.json({ message: "Rejected" });
 });
-app.get('/check-permission', async (req, res) => {
+app.get('https://aura-chat-di62.onrender.com/check-permission', async (req, res) => {
     try {
         const { user1, user2 } = req.query;
 
@@ -192,7 +196,7 @@ app.get('/check-permission', async (req, res) => {
     }
 });
 
-app.post('/accept-request', async (req, res) => {
+app.post('https://aura-chat-di62.onrender.com/accept-request', async (req, res) => {
     const { from, to } = req.body;
 
     await ChatRequest.findOneAndUpdate(
@@ -206,7 +210,7 @@ app.post('/accept-request', async (req, res) => {
 // ================== ROOM ==================
 
 // CREATE ROOM
-app.get('/create-room', (req, res) => {
+app.get('https://aura-chat-di62.onrender.com/create-room', (req, res) => {
     const roomId = uuidv4();
     res.json({ roomId });
 });
@@ -308,7 +312,7 @@ socket.on('sendMessage', async ({ username, room, message, to, image, replyTo })
 
 
 
-app.get('/users', async (req, res) => {
+app.get('https://aura-chat-di62.onrender.com/users', async (req, res) => {
     const users = await User.find({}, { username: 1, _id: 0 });
     res.json(users);
 });

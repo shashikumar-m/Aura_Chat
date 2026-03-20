@@ -541,7 +541,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
-const socket   = io();
+const socket   = io("https://aura-chat-di62.onrender.com");
 const username = localStorage.getItem("username") || "Me";
 let currentRoom  = "";
 let chattingWith = "";
