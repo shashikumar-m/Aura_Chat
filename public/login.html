@@ -291,6 +291,7 @@ async function doLogin() {
 
     // Save to localStorage and redirect
     localStorage.setItem('username', data.username);
+    localStorage.setItem('isPrivate', data.isPrivate ? 'true' : 'false');
     if (data.avatar) localStorage.setItem('myAvatar', data.avatar);
     if (data.bio)    localStorage.setItem('myBio', data.bio);
 

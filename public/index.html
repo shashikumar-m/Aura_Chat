@@ -581,6 +581,7 @@ async function login() {
     const data = await res.json();
     if (data.success) {
       localStorage.setItem("username", username);
+      localStorage.setItem("isPrivate", data.isPrivate ? 'true' : 'false');
       showToast('Welcome back, ' + username + '! 🎉');
       setTimeout(() => window.location.href = "chat.html", 900);
     } else {

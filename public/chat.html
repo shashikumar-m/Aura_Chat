@@ -75,6 +75,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 .sidebar-logo{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#a78bfa);
   border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .sidebar-logo svg{width:16px;height:16px;fill:#fff}
+@keyframes sidebarRingSpin{to{transform:rotate(360deg)}}
 .sidebar-title{font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:800;white-space:nowrap}
 .sidebar-me{margin-left:auto;font-size:0.68rem;color:var(--muted);background:var(--surface);
   padding:3px 8px;border-radius:20px;border:1px solid var(--border);
@@ -610,6 +611,12 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
       </div>
       <button class="modal-btn ghost" style="max-width:100px;padding:6px" onclick="startSetPin()">Change</button>
     </div>
+    <div class="setting-row">
+      <div class="setting-label">Private Account
+        <span class="setting-sub">Only friends can see you in the list</span>
+      </div>
+      <div class="toggle" id="privacyToggle" onclick="togglePrivacy()"></div>
+    </div>
     <div class="modal-actions" style="margin-top:18px">
       <button class="modal-btn primary" onclick="closeSettings()">Done</button>
     </div>
@@ -620,8 +627,14 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 <div id="sidebar">
   <div id="sidebarResizer"></div>
   <div class="sidebar-header">
-    <div class="sidebar-logo">
-      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.67 1.22 5.06 3.17 6.74L4 22l4.62-1.54C9.68 20.8 10.82 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
+    <div class="sidebar-logo" style="width:36px;height:36px;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#4f5de8,#8b5cf6,#c084fc);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+      <!-- rotating ring -->
+      <div style="position:absolute;inset:-2px;border-radius:12px;border:2px solid transparent;
+        background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+        linear-gradient(45deg,#6366f1,#c084fc,#f472b6,#6366f1) border-box;
+        animation:sidebarRingSpin 3s linear infinite"></div>
+      <!-- bubble icon -->
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;position:relative;z-index:1"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.67 1.22 5.06 3.17 6.74L4 22l4.62-1.54C9.68 20.8 10.82 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2z"/></svg>
     </div>
     <span class="sidebar-title">Aura Chat</span>
     <span class="sidebar-me" id="myUsername">—</span>
@@ -884,6 +897,24 @@ function updateSettingsToggles() {
   const pinE = localStorage.getItem("pinEnabled") === "true";
   const pinT = document.getElementById('pinToggle');
   if (pinT) pinT.classList.toggle('on', pinE);
+  // Privacy toggle
+  const privT = document.getElementById('privacyToggle');
+  if (privT) privT.classList.toggle('on', localStorage.getItem('isPrivate') === 'true');
+}
+
+async function togglePrivacy() {
+  const current = localStorage.getItem('isPrivate') === 'true';
+  const next = !current;
+  try {
+    await fetch('https://aura-chat-di62.onrender.com/update-privacy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, isPrivate: next })
+    });
+    localStorage.setItem('isPrivate', next ? 'true' : 'false');
+    updateSettingsToggles();
+    showToast(next ? '🔒 Account set to Private' : '🌐 Account set to Public', 'success');
+  } catch(e) { showToast('Failed to update privacy', 'error'); }
 }
 async function toggleSetting(key) {
   if (key === 'pin') {
@@ -1264,9 +1295,22 @@ socket.on('userStopTyping', d => {
 async function loadUsers() {
   showSkeletons('userList', 5);
   try {
-    const users = await (await fetch('https://aura-chat-di62.onrender.com/users')).json();
+    const [users, onlineList] = await Promise.all([
+      fetch(`https://aura-chat-di62.onrender.com/users?requester=${encodeURIComponent(username)}`).then(r => r.json()),
+      fetch('https://aura-chat-di62.onrender.com/online-users').then(r => r.json())
+    ]);
+    const onlineSet = new Set(onlineList);
     const list = document.getElementById('userList'); list.innerHTML = "";
-    users.forEach(u => { if (u.username !== username) addUserToList(u); });
+    users.forEach(u => {
+      if (u.username !== username) addUserToList(u);
+    });
+    // Apply online status immediately after rendering
+    onlineSet.forEach(u => {
+      const dot  = document.getElementById('status-' + u);
+      const hint = document.getElementById('hint-' + u);
+      if (dot)  dot.style.background = 'var(--online)';
+      if (hint) hint.textContent = '🟢 Online';
+    });
   } catch (e) {
     document.getElementById('userList').innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--muted);text-align:center">Could not load users</div>';
   }
@@ -1618,7 +1662,7 @@ let allUsers = [];
 
 async function openGroupModal() {
   // Fetch users
-  try { allUsers = (await (await fetch('https://aura-chat-di62.onrender.com/users')).json()).filter(u => u.username !== username); }
+  try { allUsers = (await (await fetch(`https://aura-chat-di62.onrender.com/users?requester=${encodeURIComponent(username)}`)).json()).filter(u => u.username !== username); }
   catch (e) { allUsers = []; }
   document.getElementById('groupName').value = "";
   groupAvatarData = "";
@@ -1701,14 +1745,10 @@ socket.on('userStatus', data => {
   const hint = document.getElementById('hint-' + data.username);
   const on = data.status === 'online';
   if (dot) dot.style.background = on ? 'var(--online)' : 'var(--offline)';
-  if (hint) hint.textContent = on ? '🟢 Online' : 'Offline';
+  if (hint) hint.textContent = on ? '🟢 Online' : formatLastSeen(data.lastSeen) || 'Offline';
   if (data.username === chattingWith && !isGroupChat) {
     document.getElementById('headerStatus').textContent = on ? '🟢 Online' : '⚫ Offline';
-    if (!on && data.lastSeen) {
-      document.getElementById('lastSeenDisplay').textContent = formatLastSeen(data.lastSeen);
-    } else {
-      document.getElementById('lastSeenDisplay').textContent = "";
-    }
+    document.getElementById('lastSeenDisplay').textContent = (!on && data.lastSeen) ? formatLastSeen(data.lastSeen) : '';
   }
 });
 socket.on('newRequest', data => { showToast(`New request from ${data.from}`, 'info'); loadRequests(); });

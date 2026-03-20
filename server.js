@@ -11,6 +11,35 @@ const { Server } = require('socket.io');
 const mongoose   = require('mongoose');
 const cors       = require('cors');
 const path       = require('path');
+const bcrypt     = require('bcrypt');
+const crypto     = require('crypto');
+
+// ────────────────────────────────────────────────────────────
+//  ENCRYPTION HELPERS  (AES-256-GCM)
+// ────────────────────────────────────────────────────────────
+const ENC_KEY = crypto.scryptSync(
+  process.env.ENCRYPTION_KEY || 'aura_default_secret_change_me',
+  'aura_salt_v1', 32
+); // 32-byte key
+
+function encrypt(text) {
+  if (!text) return '';
+  const iv  = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
+  const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return iv.toString('hex') + ':' + tag.toString('hex') + ':' + enc.toString('hex');
+}
+
+function decrypt(data) {
+  if (!data || !data.includes(':')) return data || '';
+  try {
+    const [ivHex, tagHex, encHex] = data.split(':');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+    return decipher.update(Buffer.from(encHex, 'hex')) + decipher.final('utf8');
+  } catch { return '[encrypted]'; }
+}
 
 const app    = express();
 const server = http.createServer(app);
@@ -54,7 +83,8 @@ const userSchema = new mongoose.Schema({
   username:  { type: String, required: true, unique: true, trim: true },
   avatar:    { type: String, default: '' },
   bio:       { type: String, default: '' },
-  password:  { type: String, default: '' },
+  password:  { type: String, default: '' },   // bcrypt hashed
+  isPrivate: { type: Boolean, default: false },
   lastSeen:  { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
@@ -115,9 +145,10 @@ app.post('/login', async (req, res) => {
     const user = await User.findOne({ username: username.trim() });
     if (!user)
       return res.status(404).json({ error: 'User not found. Please register first.' });
-    if (user.password !== password)
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
       return res.status(401).json({ error: 'Incorrect password' });
-    res.json({ success: true, username: user.username, avatar: user.avatar, bio: user.bio });
+    res.json({ success: true, username: user.username, avatar: user.avatar, bio: user.bio, isPrivate: user.isPrivate });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -134,7 +165,8 @@ app.post('/register', async (req, res) => {
     const exists = await User.findOne({ username: username.trim() });
     if (exists)
       return res.status(409).json({ error: 'Username already taken' });
-    const user = await User.create({ username: username.trim(), password });
+    const hashed = await bcrypt.hash(password, 12);
+    const user = await User.create({ username: username.trim(), password: hashed });
     res.json({ success: true, username: user.username });
   } catch (e) {
     if (e.code === 11000) return res.status(409).json({ error: 'Username already taken' });
@@ -142,11 +174,37 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// List all users
+// List users — respects privacy setting
 app.get('/users', async (req, res) => {
   try {
-    const users = await User.find({}, 'username avatar bio lastSeen').sort({ username: 1 });
-    res.json(users);
+    const { requester } = req.query; // who is asking
+    const allUsers = await User.find({}, 'username avatar bio lastSeen isPrivate').sort({ username: 1 });
+
+    if (!requester) return res.json(allUsers.filter(u => !u.isPrivate));
+
+    // Get all accepted connections for the requester
+    const accepted = await Request.find({
+      $or: [{ from: requester }, { to: requester }],
+      status: 'accepted'
+    });
+    const friends = new Set(accepted.map(r => r.from === requester ? r.to : r.from));
+
+    const visible = allUsers.filter(u => {
+      if (u.username === requester) return false;
+      if (!u.isPrivate) return true;          // public — always visible
+      return friends.has(u.username);          // private — only if friends
+    });
+    res.json(visible);
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Update privacy setting
+app.post('/update-privacy', async (req, res) => {
+  try {
+    const { username, isPrivate } = req.body;
+    if (!username) return res.status(400).json({ error: 'Missing username' });
+    await User.updateOne({ username }, { isPrivate: !!isPrivate });
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -225,6 +283,11 @@ app.get('/last-seen', async (req, res) => {
     const user = await User.findOne({ username }, 'lastSeen');
     res.json({ lastSeen: user?.lastSeen || null });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── ONLINE USERS LIST ──
+app.get('/online-users', (req, res) => {
+  res.json([...onlineUsers.keys()]);
 });
 
 // ── STORAGE USAGE ──
@@ -310,9 +373,14 @@ io.on('connection', (socket) => {
   // ── JOIN ROOM ──
   socket.on('joinRoom', async ({ username, room }) => {
     socket.join(room);
-    // Send chat history (last 100 messages)
+    // Send chat history (last 100 messages) — decrypt before sending
     const msgs = await Message.find({ room, deleted: false }).sort({ createdAt: 1 }).limit(100);
-    socket.emit('chatHistory', msgs);
+    const decrypted = msgs.map(m => ({
+      ...m.toObject(),
+      message: decrypt(m.message),
+      image:   decrypt(m.image)
+    }));
+    socket.emit('chatHistory', decrypted);
     // Mark all messages in this room as seen by this user
     await Message.updateMany({ room, seenBy: { $ne: username } }, { $addToSet: { seenBy: username } });
     // Emit seen events back to senders
@@ -329,22 +397,20 @@ io.on('connection', (socket) => {
   socket.on('sendMessage', async (data) => {
     const { username, room, message, image, to, replyTo, msgId, isGroup } = data;
     try {
-      // Save to DB
-      const saved = await Message.create({ room, username, message, image, replyTo, msgId, isGroup, seenBy: [username] });
+      // Encrypt before saving
+      const encMsg   = encrypt(message);
+      const encImage = encrypt(image);
+      const saved = await Message.create({ room, username, message: encMsg, image: encImage, replyTo, msgId, isGroup, seenBy: [username] });
+      // Broadcast plaintext to connected clients
       const payload = {
         username, message, image, replyTo, msgId: saved.msgId || saved._id.toString(),
         room, isGroup, timestamp: saved.createdAt
       };
-      // Broadcast to room
       io.to(room).emit('receiveMessage', payload);
 
-      // If DM: notify recipient if offline via socket event
       if (!isGroup && to) {
         const recipientSocket = onlineUsers.get(to);
-        if (!recipientSocket) {
-          // They're offline — could trigger push here with web-push library
-          console.log(`📬 ${to} is offline — message queued`);
-        }
+        if (!recipientSocket) console.log(`📬 ${to} is offline — message queued`);
       }
     } catch (e) {
       console.error('sendMessage error:', e.message);
