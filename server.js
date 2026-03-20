@@ -1,391 +1,406 @@
-const cors = require('cors');
-require('dotenv').config();
-const express = require('express');
-const http = require('http');
+// ═══════════════════════════════════════════════════════════
+//  Aura Chat — Complete Server
+//  Features: DMs, Groups, Read Receipts, Last Seen, Typing,
+//            WebRTC Signaling, Reactions, Requests, Push, etc.
+// ═══════════════════════════════════════════════════════════
+
+const express    = require('express');
+const http       = require('http');
 const { Server } = require('socket.io');
-const { v4: uuidv4 } = require('uuid');
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
-const app = express();
+const mongoose   = require('mongoose');
+const cors       = require('cors');
+const path       = require('path');
+
+const app    = express();
 const server = http.createServer(app);
-
-const onlineUsers = {};
-// Middleware
-app.use(express.json());
-app.use(express.static('public'));
-
-
-
-// ================== MONGODB ==================
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log("MongoDB Connected"))
-    .catch(err => console.log(err));
-
-// Schema + Model (IMPORTANT: before socket use)
-const messageSchema = new mongoose.Schema({
-    username: String,
-    room: String,
-    message: String,
-    image: { type: String, default: '' },
-    time: {
-        type: Date,
-        default: Date.now
-    }
+const io     = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const Message = mongoose.model('Message', messageSchema);
+app.use(cors());
+app.use(express.json({ limit: '20mb' }));   // for base64 images
+app.use(express.static(path.join(__dirname, 'public')));
 
+// ────────────────────────────────────────────────────────────
+//  MONGODB CONNECTION
+// ────────────────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/aurachat';
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB error:', err));
+
+// ────────────────────────────────────────────────────────────
+//  SCHEMAS & MODELS
+// ────────────────────────────────────────────────────────────
+
+// User
 const userSchema = new mongoose.Schema({
-    username: { type: String, unique: true },
-    password: String,
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
+  username:  { type: String, required: true, unique: true, trim: true },
+  avatar:    { type: String, default: '' },
+  bio:       { type: String, default: '' },
+  lastSeen:  { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
 });
-
 const User = mongoose.model('User', userSchema);
 
-const allowedOrigins = [
-    "http://localhost:3000",
-    "https://chatwithme23.netlify.app"
-];
-
-app.use(cors({
-    origin: function(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error("Not allowed by CORS"));
-        }
-    },
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
-}));
-// ================== AUTH ROUTES ==================
-
-
-const io = new Server(server, {
-    cors: {
-        origin: [
-            "http://localhost:3000",
-            "https://chatwithme23.netlify.app"
-        ],
-        methods: ["GET", "POST"],
-        credentials: true
-    }
+// Message
+const messageSchema = new mongoose.Schema({
+  room:     { type: String, required: true, index: true },
+  username: { type: String, required: true },
+  message:  { type: String, default: '' },
+  image:    { type: String, default: '' },
+  replyTo:  { type: mongoose.Schema.Types.Mixed, default: null },
+  msgId:    { type: String, unique: true, sparse: true },
+  isGroup:  { type: Boolean, default: false },
+  seenBy:   [{ type: String }],
+  reactions:{ type: Map, of: Object, default: {} },
+  deleted:  { type: Boolean, default: false },
+  createdAt:{ type: Date, default: Date.now }
 });
+const Message = mongoose.model('Message', messageSchema);
 
+// Chat Request
+const requestSchema = new mongoose.Schema({
+  from:      { type: String, required: true },
+  to:        { type: String, required: true },
+  status:    { type: String, enum: ['pending','accepted','rejected'], default: 'pending' },
+  createdAt: { type: Date, default: Date.now }
+});
+const Request = mongoose.model('Request', requestSchema);
 
-// REGISTER
+// Group
+const groupSchema = new mongoose.Schema({
+  groupId:   { type: String, required: true, unique: true },
+  name:      { type: String, required: true },
+  members:   [{ type: String }],
+  admin:     { type: String, required: true },
+  avatar:    { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now }
+});
+const Group = mongoose.model('Group', groupSchema);
+
+// ────────────────────────────────────────────────────────────
+//  IN-MEMORY ONLINE TRACKING
+// ────────────────────────────────────────────────────────────
+const onlineUsers = new Map();   // username -> socketId
+const socketToUser = new Map();  // socketId -> username
+
+// ────────────────────────────────────────────────────────────
+//  REST ENDPOINTS
+// ────────────────────────────────────────────────────────────
+
+// Register or get user
 app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.json({ success: false, message: "Missing fields" });
-    }
-
-    try {
-        // Check if user exists
-        const existing = await User.findOne({ username });
-        if (existing) {
-            return res.json({ success: false, message: "User already exists" });
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Save user
-        await User.create({
-            username,
-            password: hashedPassword
-        });
-
-        res.json({ success: true });
-
-    } catch (err) {
-        console.error(err);
-        res.json({ success: false, message: "Server error" });
-    }
+  try {
+    const { username } = req.body;
+    if (!username || username.trim().length < 2)
+      return res.status(400).json({ error: 'Username too short' });
+    let user = await User.findOne({ username: username.trim() });
+    if (!user) user = await User.create({ username: username.trim() });
+    res.json({ success: true, user });
+  } catch (e) {
+    if (e.code === 11000) return res.status(409).json({ error: 'Username taken' });
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-// LOGIN
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-        const user = await User.findOne({ username });
-
-        if (!user) {
-            return res.json({ success: false, message: "User not found" });
-        }
-
-        // Compare password
-        const match = await bcrypt.compare(password, user.password);
-
-        if (!match) {
-            return res.json({ success: false, message: "Wrong password" });
-        }
-
-        res.json({ success: true });
-
-    } catch (err) {
-        console.error(err);
-        res.json({ success: false, message: "Server error" });
-    }
-});
-
-
-
-
-
-
-
-
-app.post('/send-request', async (req, res) => {
-    const { from, to } = req.body;
-
-    const exists = await ChatRequest.findOne({
-        $or: [
-            { from, to },
-            { from: to, to: from }
-        ]
-    });
-
-    if (exists) {
-        return res.json({ message: "Request already exists" });
-    }
-
-    await ChatRequest.create({ from, to });
-
-    // 🔥 REAL-TIME NOTIFICATION
-    if (onlineUsers[to]) {
-        io.to(onlineUsers[to]).emit('newRequest', {
-            from
-        });
-    }
-
-    res.json({ message: "Request sent" });
-});
-
-const chatRequestSchema = new mongoose.Schema({
-    from: String,
-    to: String,
-    status: {
-        type: String,
-        enum: ['pending', 'accepted', 'rejected'],
-        default: 'pending'
-    }
-});
-
-const ChatRequest = mongoose.model('ChatRequest', chatRequestSchema);
-
-app.get('/requests', async (req, res) => {
-    const { username } = req.query;
-
-    const requests = await ChatRequest.find({
-        to: username,
-        status: 'pending'
-    });
-
-    res.json(requests);
-});
-app.post('/reject-request', async (req, res) => {
-    const { from, to } = req.body;
-
-    await ChatRequest.findOneAndUpdate(
-        { from, to },
-        { status: 'rejected' }
-    );
-
-    res.json({ message: "Rejected" });
-});
-app.get('/check-permission', async (req, res) => {
-    try {
-        const { user1, user2 } = req.query;
-
-        const request = await ChatRequest.findOne({
-            $or: [
-                { from: user1, to: user2 },
-                { from: user2, to: user1 }
-            ]
-        });
-
-        if (!request) {
-            return res.json({ status: "none" });
-        }
-
-        res.json({ status: request.status });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Server error" });
-    }
-});
-
-app.post('/accept-request', async (req, res) => {
-    const { from, to } = req.body;
-
-    await ChatRequest.findOneAndUpdate(
-        { from, to },
-        { status: 'accepted' }
-    );
-
-    res.json({ message: "Accepted" });
-});
-
-// ================== ROOM ==================
-
-// CREATE ROOM
-app.get('/create-room', (req, res) => {
-    const roomId = uuidv4();
-    res.json({ roomId });
-});
-
-// ================== SOCKET.IO ==================
-io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-
-    // ✅ USER ONLINE (MOVE HERE)
-    socket.on('userOnline', (username) => {
-        onlineUsers[username] = socket.id;
-
-        io.emit('userStatus', {
-            username,
-            status: 'online'
-        });
-    });
-
-    // ✅ JOIN ROOM
-    socket.on('joinRoom', async ({ username, room }) => {
-        socket.join(room);
-
-        const messages = await Message.find({ room }).sort({ time: 1 });
-        socket.emit('chatHistory', messages);
-    });
-
-    // ── TYPING INDICATORS ──────────────────────────────────
-socket.on('typing', ({ room, username }) => {
-    socket.to(room).emit('userTyping', { room, username });
-});
-
-socket.on('stopTyping', ({ room, username }) => {
-    socket.to(room).emit('userStopTyping', { room, username });
-});
-
-// ── EMOJI REACTIONS ────────────────────────────────────
-socket.on('reactMessage', ({ msgId, emoji, username, room }) => {
-    socket.to(room).emit('newReaction', { msgId, emoji, user: username });
-});
-
-// ── DELETE MESSAGE ─────────────────────────────────────
-socket.on('deleteMessage', async ({ msgId, room, username }) => {
-    try {
-        await Message.findOneAndDelete({ _id: msgId, username });
-
-        io.to(room).emit('messageDeleted', { msgId });
-    } catch (err) {
-        console.error('Delete error:', err);
-    }
-});
-
-    // ✅ SEND MESSAGE
-socket.on('sendMessage', async ({ username, room, message, to, image, replyTo }) => {
-
-    const allowed = await ChatRequest.findOne({
-        $or: [
-            { from: username, to, status: 'accepted' },
-            { from: to, to: username, status: 'accepted' }
-        ]
-    });
-
-    if (!allowed) return;
-
-    const saved = await Message.create({
-        username,
-        room,
-        message: message || '',
-        image: image || ''
-    });
-
-    io.to(room).emit('receiveMessage', {
-        username,
-        message: message || '',
-        image: image || '',
-        msgId: saved._id.toString(),
-        replyTo: replyTo || null
-    });
-});
-
-    // ✅ DISCONNECT (MOVE HERE)
-    socket.on('disconnect', () => {
-        const user = Object.keys(onlineUsers).find(
-            key => onlineUsers[key] === socket.id
-        );
-
-        if (user) {
-            delete onlineUsers[user];
-
-            io.emit('userStatus', {
-                username: user,
-                status: 'offline'
-            });
-        }
-
-        console.log('User disconnected:', socket.id);
-    });
-
-    // CALL REQUEST
-socket.on('callUser', ({ to, from }) => {
-    if (onlineUsers[to]) {
-        io.to(onlineUsers[to]).emit('incomingCall', { from });
-    }
-});
-
-// OFFER
-app.use(cors({
-    origin: [
-        "http://localhost:3000",
-        "https://chatwithme23.netlify.app"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
-}));
-
-// ANSWER
-socket.on('answer', ({ to, answer }) => {
-    io.to(onlineUsers[to]).emit('answer', answer);
-});
-
-// ICE
-socket.on('ice-candidate', ({ to, candidate }) => {
-    io.to(onlineUsers[to]).emit('ice-candidate', candidate);
-});
-
-
-// REJECT CALL
-socket.on('rejectCall', ({ to, from }) => {
-    if (onlineUsers[to]) {
-        io.to(onlineUsers[to]).emit('callRejected', { from });
-    }
-});
-
-});
-
-
-
-
+// List all users
 app.get('/users', async (req, res) => {
-    const users = await User.find({}, { username: 1, _id: 0 });
+  try {
+    const users = await User.find({}, 'username avatar bio lastSeen').sort({ username: 1 });
     res.json(users);
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
-function generateRoom(user1, user2) {
-    return [user1, user2].sort().join("_");
-}
+// Send chat request
+app.post('/send-request', async (req, res) => {
+  try {
+    const { from, to } = req.body;
+    if (!from || !to) return res.status(400).json({ error: 'Missing fields' });
+    const exists = await Request.findOne({ from, to, status: { $in: ['pending', 'accepted'] } });
+    if (exists) return res.json({ success: true, status: exists.status });
+    await Request.create({ from, to });
+    // Notify recipient via socket
+    const recipientSocketId = onlineUsers.get(to);
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit('newRequest', { from });
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
 
+// Check permission
+app.get('/check-permission', async (req, res) => {
+  try {
+    const { user1, user2 } = req.query;
+    const req1 = await Request.findOne({ from: user1, to: user2 });
+    const req2 = await Request.findOne({ from: user2, to: user1 });
+    const found = req1 || req2;
+    if (!found) return res.json({ status: 'none' });
+    res.json({ status: found.status });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Get pending requests for a user
+app.get('/requests', async (req, res) => {
+  try {
+    const { username } = req.query;
+    const reqs = await Request.find({ to: username, status: 'pending' });
+    res.json(reqs);
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Accept request
+app.post('/accept-request', async (req, res) => {
+  try {
+    const { from, to } = req.body;
+    await Request.updateOne({ from, to, status: 'pending' }, { status: 'accepted' });
+    // Notify sender
+    const senderSocket = onlineUsers.get(from);
+    if (senderSocket) io.to(senderSocket).emit('requestAccepted', { by: to });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Reject request
+app.post('/reject-request', async (req, res) => {
+  try {
+    const { from, to } = req.body;
+    await Request.updateOne({ from, to, status: 'pending' }, { status: 'rejected' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Get groups for a user
+app.get('/groups', async (req, res) => {
+  try {
+    const { username } = req.query;
+    const groups = await Group.find({ members: username });
+    res.json(groups);
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// Get last seen
+app.get('/last-seen', async (req, res) => {
+  try {
+    const { username } = req.query;
+    const user = await User.findOne({ username }, 'lastSeen');
+    res.json({ lastSeen: user?.lastSeen || null });
+  } catch (e) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// ────────────────────────────────────────────────────────────
+//  SOCKET.IO
+// ────────────────────────────────────────────────────────────
+io.on('connection', (socket) => {
+  console.log('🔌 Socket connected:', socket.id);
+
+  // ── USER ONLINE ──
+  socket.on('userOnline', async (username) => {
+    onlineUsers.set(username, socket.id);
+    socketToUser.set(socket.id, username);
+    socket.username = username;
+
+    // Update lastSeen to null (online now)
+    await User.updateOne({ username }, { lastSeen: null }, { upsert: true });
+
+    // Broadcast online status
+    io.emit('userStatus', { username, status: 'online', lastSeen: null });
+    console.log(`✅ ${username} is online`);
+
+    // Send this user their group list
+    const groups = await Group.find({ members: username });
+    socket.emit('groupsList', groups);
+    // Auto-join group rooms
+    groups.forEach(g => socket.join(g.groupId));
+  });
+
+  // ── JOIN ROOM ──
+  socket.on('joinRoom', async ({ username, room }) => {
+    socket.join(room);
+    // Send chat history (last 100 messages)
+    const msgs = await Message.find({ room, deleted: false }).sort({ createdAt: 1 }).limit(100);
+    socket.emit('chatHistory', msgs);
+    // Mark all messages in this room as seen by this user
+    await Message.updateMany({ room, seenBy: { $ne: username } }, { $addToSet: { seenBy: username } });
+    // Emit seen events back to senders
+    const unread = await Message.find({ room, seenBy: username });
+    unread.forEach(m => {
+      if (m.username !== username) {
+        const senderSocket = onlineUsers.get(m.username);
+        if (senderSocket) io.to(senderSocket).emit('messageSeen', { msgId: m.msgId, by: username });
+      }
+    });
+  });
+
+  // ── SEND MESSAGE ──
+  socket.on('sendMessage', async (data) => {
+    const { username, room, message, image, to, replyTo, msgId, isGroup } = data;
+    try {
+      // Save to DB
+      const saved = await Message.create({ room, username, message, image, replyTo, msgId, isGroup, seenBy: [username] });
+      const payload = {
+        username, message, image, replyTo, msgId: saved.msgId || saved._id.toString(),
+        room, isGroup, timestamp: saved.createdAt
+      };
+      // Broadcast to room
+      io.to(room).emit('receiveMessage', payload);
+
+      // If DM: notify recipient if offline via socket event
+      if (!isGroup && to) {
+        const recipientSocket = onlineUsers.get(to);
+        if (!recipientSocket) {
+          // They're offline — could trigger push here with web-push library
+          console.log(`📬 ${to} is offline — message queued`);
+        }
+      }
+    } catch (e) {
+      console.error('sendMessage error:', e.message);
+    }
+  });
+
+  // ── MESSAGE SEEN ──
+  socket.on('messageSeen', async ({ msgId, room, by }) => {
+    try {
+      const msg = await Message.findOneAndUpdate(
+        { msgId, seenBy: { $ne: by } },
+        { $addToSet: { seenBy: by } }
+      );
+      if (msg && msg.username !== by) {
+        const senderSocket = onlineUsers.get(msg.username);
+        if (senderSocket) io.to(senderSocket).emit('messageSeen', { msgId, by });
+      }
+    } catch (e) {}
+  });
+
+  // ── DELETE MESSAGE ──
+  socket.on('deleteMessage', async ({ msgId, room, username }) => {
+    try {
+      const msg = await Message.findOne({ msgId });
+      if (!msg || msg.username !== username) return;
+      await Message.updateOne({ msgId }, { deleted: true, message: '', image: '' });
+      io.to(room).emit('messageDeleted', { msgId });
+    } catch (e) {}
+  });
+
+  // ── TYPING ──
+  socket.on('typing', ({ room, username }) => {
+    socket.to(room).emit('userTyping', { username, room });
+  });
+  socket.on('stopTyping', ({ room, username }) => {
+    socket.to(room).emit('userStopTyping', { username, room });
+  });
+
+  // ── REACTIONS ──
+  socket.on('reactMessage', async ({ msgId, emoji, username, room }) => {
+    try {
+      // Update in DB
+      const key = `reactions.${emoji}`;
+      await Message.updateOne({ msgId }, { $set: { [key]: { emoji, users: [] } } }, { upsert: false });
+      io.to(room).emit('newReaction', { msgId, emoji, user: username });
+    } catch (e) {}
+  });
+
+  // ── GET LAST SEEN ──
+  socket.on('getLastSeen', async ({ username: targetUser }) => {
+    try {
+      const user = await User.findOne({ username: targetUser }, 'lastSeen');
+      socket.emit('userLastSeen', { username: targetUser, lastSeen: user?.lastSeen || null });
+    } catch (e) {}
+  });
+
+  // ── CREATE GROUP ──
+  socket.on('createGroup', async (groupData) => {
+    try {
+      const { groupId, name, members, admin, avatar } = groupData;
+      const existing = await Group.findOne({ groupId });
+      if (existing) return;
+      const group = await Group.create({ groupId, name, members, admin, avatar });
+      // Join the room for all online members
+      members.forEach(m => {
+        const mSocket = onlineUsers.get(m);
+        if (mSocket) {
+          io.to(mSocket).emit('groupCreated', group);
+          // Make them join the socket room
+          const s = io.sockets.sockets.get(mSocket);
+          if (s) s.join(groupId);
+        }
+      });
+    } catch (e) { console.error('createGroup error:', e.message); }
+  });
+
+  // ── GET MY GROUPS ──
+  socket.on('getMyGroups', async ({ username }) => {
+    try {
+      const groups = await Group.find({ members: username });
+      socket.emit('groupsList', groups);
+      groups.forEach(g => socket.join(g.groupId));
+    } catch (e) {}
+  });
+
+  // ── GROUP ADMIN: UPDATE NAME/AVATAR ──
+  socket.on('updateGroup', async ({ groupId, name, avatar, requestedBy }) => {
+    try {
+      const group = await Group.findOne({ groupId });
+      if (!group || group.admin !== requestedBy) return;
+      if (name) group.name = name;
+      if (avatar) group.avatar = avatar;
+      await group.save();
+      io.to(groupId).emit('groupUpdated', group);
+    } catch (e) {}
+  });
+
+  // ── GROUP ADMIN: REMOVE MEMBER ──
+  socket.on('removeMember', async ({ groupId, memberToRemove, requestedBy }) => {
+    try {
+      const group = await Group.findOne({ groupId });
+      if (!group || group.admin !== requestedBy) return;
+      if (memberToRemove === group.admin) return;
+      group.members = group.members.filter(m => m !== memberToRemove);
+      await group.save();
+      const mSocket = onlineUsers.get(memberToRemove);
+      if (mSocket) io.to(mSocket).emit('removedFromGroup', { groupId, groupName: group.name });
+      io.to(groupId).emit('memberRemoved', { groupId, member: memberToRemove });
+    } catch (e) {}
+  });
+
+  // ── WEBRTC SIGNALING ──
+  socket.on('callUser', ({ to, from, offer }) => {
+    const recipientSocket = onlineUsers.get(to);
+    if (recipientSocket) {
+      io.to(recipientSocket).emit('incomingCall', { from, offer });
+    }
+  });
+  socket.on('callAnswer', ({ to, answer }) => {
+    const callerSocket = onlineUsers.get(to);
+    if (callerSocket) io.to(callerSocket).emit('callAnswered', { answer });
+  });
+  socket.on('iceCandidate', ({ to, candidate }) => {
+    const targetSocket = onlineUsers.get(to);
+    if (targetSocket) io.to(targetSocket).emit('iceCandidate', { candidate });
+  });
+  socket.on('rejectCall', ({ to, from }) => {
+    const callerSocket = onlineUsers.get(to);
+    if (callerSocket) io.to(callerSocket).emit('callRejected', { from });
+  });
+
+  // ── DISCONNECT ──
+  socket.on('disconnect', async () => {
+    const user = socketToUser.get(socket.id);
+    if (user) {
+      onlineUsers.delete(user);
+      socketToUser.delete(socket.id);
+      const lastSeen = new Date();
+      await User.updateOne({ username: user }, { lastSeen });
+      io.emit('userStatus', { username: user, status: 'offline', lastSeen });
+      console.log(`❌ ${user} disconnected — lastSeen saved`);
+    }
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+//  START SERVER
+// ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-// ================== SERVER ==================
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Aura Chat server running on port ${PORT}`));
