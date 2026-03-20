@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
 const onlineUsers = {};
 // Middleware
 app.use(express.json());
@@ -46,12 +46,36 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://chatwithme23.netlify.app"
+];
+
 app.use(cors({
-    origin: "https://chatwithme23.netlify.app",
-    methods: ["GET", "POST"],
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
 // ================== AUTH ROUTES ==================
+
+
+const io = new Server(server, {
+    cors: {
+        origin: [
+            "http://localhost:3000",
+            "https://chatwithme23.netlify.app"
+        ],
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
 
 // REGISTER
 app.post('/register', async (req, res) => {
