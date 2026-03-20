@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Aura Chat — Offline</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#0d0d12;color:#eeeef5;font-family:'Instrument Sans',sans-serif;
+  height:100dvh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:20px;text-align:center;padding:32px;
+}
+.logo{
+  width:80px;height:80px;background:linear-gradient(135deg,#5b6af7,#a78bfa);
+  border-radius:24px;display:flex;align-items:center;justify-content:center;
+  font-size:2.2rem;margin-bottom:8px;
+  box-shadow:0 8px 32px rgba(91,106,247,0.35);
+}
+h1{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800}
+p{font-size:0.9rem;color:rgba(238,238,245,0.5);max-width:260px;line-height:1.7}
+.pulse{
+  width:12px;height:12px;border-radius:50%;background:#f87171;
+  animation:pulse 1.5s ease infinite;display:inline-block;margin-right:6px;vertical-align:middle;
+}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:0.6}}
+.status{font-size:0.8rem;color:rgba(238,238,245,0.4);display:flex;align-items:center;justify-content:center}
+.retry-btn{
+  margin-top:12px;padding:12px 28px;
+  background:linear-gradient(135deg,#5b6af7,#818cf8);border:none;border-radius:14px;
+  color:#fff;font-family:'Instrument Sans',sans-serif;font-size:0.9rem;font-weight:500;
+  cursor:pointer;transition:transform 0.12s,opacity 0.12s;
+}
+.retry-btn:hover{opacity:0.9}
+.retry-btn:active{transform:scale(0.95)}
+.tip{font-size:0.75rem;color:rgba(238,238,245,0.28);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="logo">💬</div>
+<h1>You're offline</h1>
+<p>Aura Chat needs an internet connection to send and receive messages.</p>
+<div class="status"><span class="pulse"></span>No connection detected</div>
+<button class="retry-btn" onclick="retry()">↺ Try Again</button>
+<div class="tip">Your messages will sync when you reconnect.</div>
+
+<script>
+function retry() {
+  if (navigator.onLine) {
+    window.location.href = '/';
+  } else {
+    const btn = document.querySelector('.retry-btn');
+    btn.textContent = 'Still offline…';
+    setTimeout(() => btn.textContent = '↺ Try Again', 2000);
+  }
+}
+// Auto-redirect when back online
+window.addEventListener('online', () => { window.location.href = '/'; });
+</script>
+</body>
+</html>
