@@ -1045,13 +1045,13 @@ function renderReactions(msgId){
    SEND REQUEST / START CHAT
 ══════════════════════════════════════════ */
 async function sendRequest(toUser){
-  await fetch('/send-request',{method:'POST',headers:{'Content-Type':'application/json'},
+  await fetch('https://aura-chat-di62.onrender.com/send-request',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({from:username,to:toUser})});
   showToast(`Request sent to ${toUser}`,'success');
 }
 async function startChat(otherUser){
   if(blockedUsers.includes(otherUser)){showToast("You've blocked this user",'error');return;}
-  const res=await fetch(`/check-permission?user1=${username}&user2=${otherUser}`);
+  const res=await fetch(`https://aura-chat-di62.onrender.com/check-permission?user1=${username}&user2=${otherUser}`);
   if(!res.ok){showToast("Server error",'error');return;}
   const data=await res.json();
   if(data.status==="none"){
@@ -1075,7 +1075,7 @@ function generateRoom(a,b){return[a,b].sort().join("_");}
    REQUESTS
 ══════════════════════════════════════════ */
 async function loadRequests(){
-  const reqs=await(await fetch(`/requests?username=${username}`)).json();
+  const reqs=await(await fetch(`https://aura-chat-di62.onrender.com/requests?username=${username}`)).json();
   const container=document.getElementById('requestList');
   const label=document.getElementById('reqLabel');
   container.innerHTML='';
@@ -1092,12 +1092,12 @@ async function loadRequests(){
   });
 }
 async function acceptRequest(fromUser){
-  await fetch('/accept-request',{method:'POST',headers:{'Content-Type':'application/json'},
+  await fetch('https://aura-chat-di62.onrender.com/accept-request',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({from:fromUser,to:username})});
   showToast(`Accepted request from ${fromUser}`,'success'); loadRequests();
 }
 async function rejectRequest(fromUser){
-  await fetch('/reject-request',{method:'POST',headers:{'Content-Type':'application/json'},
+  await fetch('https://aura-chat-di62.onrender.com/reject-request',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({from:fromUser,to:username})});
   showToast(`Rejected request from ${fromUser}`,'warn'); loadRequests();
 }
