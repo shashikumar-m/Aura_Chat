@@ -573,7 +573,9 @@ async function startCall() {
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
-const socket   = io("https://aura-chat-di62.onrender.com");
+const socket = io("https://aura-chat-di62.onrender.com", {
+    transports: ["websocket"]
+});
 const username = localStorage.getItem("username") || "Me";
 let currentRoom  = "";
 let chattingWith = "";

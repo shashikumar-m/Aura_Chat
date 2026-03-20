@@ -343,9 +343,14 @@ socket.on('callUser', ({ to, from }) => {
 });
 
 // OFFER
-socket.on('offer', ({ to, offer }) => {
-    io.to(onlineUsers[to]).emit('offer', offer);
-});
+app.use(cors({
+    origin: [
+        "http://localhost:3000",
+        "https://chatwithme23.netlify.app"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
 
 // ANSWER
 socket.on('answer', ({ to, answer }) => {
@@ -355,26 +360,6 @@ socket.on('answer', ({ to, answer }) => {
 // ICE
 socket.on('ice-candidate', ({ to, candidate }) => {
     io.to(onlineUsers[to]).emit('ice-candidate', candidate);
-});
-
-socket.on('offer', async (offer) => {
-    await peerConnection.setRemoteDescription(offer);
-
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    socket.emit('answer', {
-        to: chattingWith,
-        answer
-    });
-});
-
-socket.on('answer', async (answer) => {
-    await peerConnection.setRemoteDescription(answer);
-});
-
-socket.on('ice-candidate', async (candidate) => {
-    await peerConnection.addIceCandidate(candidate);
 });
 
 
@@ -392,8 +377,8 @@ function generateRoom(user1, user2) {
     return [user1, user2].sort().join("_");
 }
 
-
+const PORT = process.env.PORT || 3000;
 // ================== SERVER ==================
-server.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
+server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
