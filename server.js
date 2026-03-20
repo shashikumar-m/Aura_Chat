@@ -363,6 +363,13 @@ socket.on('ice-candidate', ({ to, candidate }) => {
 });
 
 
+// REJECT CALL
+socket.on('rejectCall', ({ to, from }) => {
+    if (onlineUsers[to]) {
+        io.to(onlineUsers[to]).emit('callRejected', { from });
+    }
+});
+
 });
 
 
