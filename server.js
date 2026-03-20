@@ -1,3 +1,4 @@
+const cors = require('cors');
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -45,6 +46,11 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+app.use(cors({
+    origin: "https://chatwithme23.netlify.app",
+    methods: ["GET", "POST"],
+    credentials: true
+}));
 // ================== AUTH ROUTES ==================
 
 // REGISTER
