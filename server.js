@@ -4,6 +4,7 @@
 //            WebRTC Signaling, Reactions, Requests, Push, etc.
 // ═══════════════════════════════════════════════════════════
 
+require('dotenv').config();
 const express    = require('express');
 const http       = require('http');
 const { Server } = require('socket.io');
@@ -13,20 +14,33 @@ const path       = require('path');
 
 const app    = express();
 const server = http.createServer(app);
-const io     = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
-});
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://chatwithme23.netlify.app"
+];
 
-app.use(cors());
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ["GET", "POST"],
+  credentials: true
+}));
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 app.use(express.json({ limit: '20mb' }));   // for base64 images
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ────────────────────────────────────────────────────────────
 //  MONGODB CONNECTION
 // ────────────────────────────────────────────────────────────
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/aurachat';
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/aurachat';
 
-mongoose.connect(MONGO_URI)
+mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB error:', err));
 
@@ -328,7 +342,12 @@ io.on('connection', (socket) => {
     try {
       // Update in DB
       const key = `reactions.${emoji}`;
-      await Message.updateOne({ msgId }, { $set: { [key]: { emoji, users: [] } } }, { upsert: false });
+      await Message.updateOne(
+  { msgId },
+  {
+    $addToSet: { [`reactions.${emoji}.users`]: username }
+  }
+);
       io.to(room).emit('newReaction', { msgId, emoji, user: username });
     } catch (e) {}
   });
