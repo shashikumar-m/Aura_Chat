@@ -13,11 +13,37 @@ body{
   justify-content:center;gap:20px;text-align:center;padding:32px;
 }
 .logo{
-  width:80px;height:80px;background:linear-gradient(135deg,#5b6af7,#a78bfa);
-  border-radius:24px;display:flex;align-items:center;justify-content:center;
-  font-size:2.2rem;margin-bottom:8px;
-  box-shadow:0 8px 32px rgba(91,106,247,0.35);
+  width:80px;height:80px;position:relative;
+  display:flex;align-items:center;justify-content:center;margin-bottom:8px;
 }
+.logo .lm-ring2{position:absolute;inset:0;border-radius:20px;border:1px solid transparent;
+  background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+  linear-gradient(180deg,#a78bfa,#f472b6,#6366f1,#a78bfa) border-box;
+  animation:lmSpin2 4s linear infinite reverse}
+.logo .lm-ring1{position:absolute;inset:3px;border-radius:16px;border:2px solid transparent;
+  background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+  linear-gradient(0deg,#6366f1,#c084fc,#f472b6,#6366f1) border-box;
+  animation:lmSpin1 3s linear infinite}
+.logo .lm-sq{position:absolute;inset:9px;border-radius:11px;
+  background:linear-gradient(135deg,#4f5de8,#8b5cf6,#c084fc);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.logo .lm-sq::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.18) 50%,transparent 60%);
+  background-size:200% 100%;animation:lmShine 2.5s ease-in-out infinite;border-radius:11px}
+.logo .lm-bubble{position:relative;background:white;border-radius:6px;width:28px;height:16px;
+  display:flex;align-items:center;justify-content:center;gap:3px}
+.logo .lm-bubble::after{content:'';position:absolute;bottom:-5px;left:4px;
+  width:0;height:0;border-left:4px solid transparent;border-right:2px solid transparent;border-top:6px solid white}
+.logo .lm-dot{width:4px;height:4px;border-radius:50%;animation:lmDot 1.4s ease-in-out infinite}
+.logo .lm-dot:nth-child(1){background:#6366f1;animation-delay:0s}
+.logo .lm-dot:nth-child(2){background:linear-gradient(135deg,#f472b6,#c084fc);animation-delay:0.2s}
+.logo .lm-dot:nth-child(3){background:#c084fc;animation-delay:0.4s}
+@property --lma{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --lmb{syntax:'<angle>';initial-value:180deg;inherits:false}
+@keyframes lmSpin1{to{--lma:360deg}}
+@keyframes lmSpin2{to{--lmb:540deg}}
+@keyframes lmShine{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes lmDot{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-2px)}}
 h1{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800}
 p{font-size:0.9rem;color:rgba(238,238,245,0.5);max-width:260px;line-height:1.7}
 .pulse{
@@ -38,7 +64,17 @@ p{font-size:0.9rem;color:rgba(238,238,245,0.5);max-width:260px;line-height:1.7}
 </style>
 </head>
 <body>
-<div class="logo">💬</div>
+<div class="logo">
+  <div class="lm-ring2"></div>
+  <div class="lm-ring1"></div>
+  <div class="lm-sq">
+    <div class="lm-bubble">
+      <div class="lm-dot"></div>
+      <div class="lm-dot"></div>
+      <div class="lm-dot"></div>
+    </div>
+  </div>
+</div>
 <h1>You're offline</h1>
 <p>Aura Chat needs an internet connection to send and receive messages.</p>
 <div class="status"><span class="pulse"></span>No connection detected</div>

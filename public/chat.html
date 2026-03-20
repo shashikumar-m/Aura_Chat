@@ -4,6 +4,14 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Aura Chat</title>
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#5b6af7"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Aura Chat"/>
+<link rel="apple-touch-icon" href="/icons/icon-192.png"/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -36,8 +44,36 @@ body{display:flex}
   background:var(--bg);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:20px}
 #pinLock.hidden{display:none}
-.pin-lock-logo{width:64px;height:64px;background:linear-gradient(135deg,var(--accent),#a78bfa);
-  border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:2rem}
+.pin-lock-logo{width:72px;height:72px;position:relative;
+  display:flex;align-items:center;justify-content:center;border-radius:20px}
+.pin-lock-logo .lm-ring2{position:absolute;inset:0;border-radius:20px;border:1px solid transparent;
+  background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+  linear-gradient(180deg,#a78bfa,#f472b6,#6366f1,#a78bfa) border-box;
+  animation:lmSpin2 4s linear infinite reverse}
+.pin-lock-logo .lm-ring1{position:absolute;inset:3px;border-radius:16px;border:2px solid transparent;
+  background:linear-gradient(#0d0d12,#0d0d12) padding-box,
+  linear-gradient(0deg,#6366f1,#c084fc,#f472b6,#6366f1) border-box;
+  animation:lmSpin1 3s linear infinite}
+.pin-lock-logo .lm-sq{position:absolute;inset:8px;border-radius:12px;
+  background:linear-gradient(135deg,#4f5de8,#8b5cf6,#c084fc);
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pin-lock-logo .lm-sq::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.18) 50%,transparent 60%);
+  background-size:200% 100%;animation:lmShine 2.5s ease-in-out infinite;border-radius:12px}
+.pin-lock-logo .lm-bubble{position:relative;background:white;border-radius:6px;width:28px;height:16px;
+  display:flex;align-items:center;justify-content:center;gap:2.5px}
+.pin-lock-logo .lm-bubble::after{content:'';position:absolute;bottom:-5px;left:4px;
+  width:0;height:0;border-left:4px solid transparent;border-right:2px solid transparent;border-top:6px solid white}
+.pin-lock-logo .lm-dot{width:4px;height:4px;border-radius:50%;animation:lmDot 1.4s ease-in-out infinite}
+.pin-lock-logo .lm-dot:nth-child(1){background:#6366f1;animation-delay:0s}
+.pin-lock-logo .lm-dot:nth-child(2){background:linear-gradient(135deg,#f472b6,#c084fc);animation-delay:0.2s}
+.pin-lock-logo .lm-dot:nth-child(3){background:#c084fc;animation-delay:0.4s}
+@property --lma{syntax:'<angle>';initial-value:0deg;inherits:false}
+@property --lmb{syntax:'<angle>';initial-value:180deg;inherits:false}
+@keyframes lmSpin1{to{--lma:360deg}}
+@keyframes lmSpin2{to{--lmb:540deg}}
+@keyframes lmShine{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes lmDot{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-2px)}}
 .pin-lock-title{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800}
 .pin-lock-sub{font-size:0.82rem;color:var(--muted)}
 .pin-dots{display:flex;gap:14px;margin:8px 0}
@@ -463,7 +499,17 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 
 <!-- PIN LOCK -->
 <div id="pinLock">
-  <div class="pin-lock-logo">🔐</div>
+  <div class="pin-lock-logo">
+    <div class="lm-ring2"></div>
+    <div class="lm-ring1"></div>
+    <div class="lm-sq">
+      <div class="lm-bubble">
+        <div class="lm-dot"></div>
+        <div class="lm-dot"></div>
+        <div class="lm-dot"></div>
+      </div>
+    </div>
+  </div>
   <div class="pin-lock-title">Aura Chat</div>
   <div class="pin-lock-sub" id="pinLockSub">Enter your PIN</div>
   <div class="pin-dots">
@@ -739,7 +785,26 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
   </div>
 
   <div class="empty-state" id="emptyState">
-    <div class="empty-icon">💬</div>
+    <div class="empty-icon" style="position:relative;width:70px;height:70px;background:none;border:none">
+      <div style="position:absolute;inset:0;border-radius:18px;border:1px solid transparent;
+        background:linear-gradient(var(--bg),var(--bg)) padding-box,
+        linear-gradient(180deg,#a78bfa,#f472b6,#6366f1,#a78bfa) border-box;
+        animation:lmSpin2 4s linear infinite reverse"></div>
+      <div style="position:absolute;inset:3px;border-radius:14px;border:2px solid transparent;
+        background:linear-gradient(var(--bg),var(--bg)) padding-box,
+        linear-gradient(0deg,#6366f1,#c084fc,#f472b6,#6366f1) border-box;
+        animation:lmSpin1 3s linear infinite"></div>
+      <div style="position:absolute;inset:8px;border-radius:10px;
+        background:linear-gradient(135deg,#4f5de8,#8b5cf6,#c084fc);
+        display:flex;align-items:center;justify-content:center;overflow:hidden">
+        <div style="position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.18) 50%,transparent 60%);background-size:200% 100%;animation:lmShine 2.5s ease-in-out infinite"></div>
+        <div style="position:relative;background:white;border-radius:5px;width:26px;height:15px;display:flex;align-items:center;justify-content:center;gap:2px">
+          <div style="width:4px;height:4px;border-radius:50%;background:#6366f1;animation:lmDot 1.4s ease-in-out infinite;animation-delay:0s"></div>
+          <div style="width:4px;height:4px;border-radius:50%;background:linear-gradient(135deg,#f472b6,#c084fc);animation:lmDot 1.4s ease-in-out infinite;animation-delay:0.2s"></div>
+          <div style="width:4px;height:4px;border-radius:50%;background:#c084fc;animation:lmDot 1.4s ease-in-out infinite;animation-delay:0.4s"></div>
+        </div>
+      </div>
+    </div>
     <h3>No conversation open</h3>
     <p>Pick someone from your contacts to start chatting.</p>
     <button class="empty-open-btn" onclick="openSidebar()">Open Contacts</button>

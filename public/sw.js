@@ -3,16 +3,19 @@
 //  Handles: Caching, Offline, Push Notifications
 // ═══════════════════════════════════════════
 
-const CACHE_NAME  = 'aura-chat-v2';
+const CACHE_NAME  = 'aura-chat-v4';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
   '/',
   '/index.html',
+  '/chat.html',
+  '/login.html',
   '/offline.html',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/icon-144.png',
   'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500&display=swap',
   'https://cdn.socket.io/4.7.5/socket.io.min.js'
 ];
