@@ -505,6 +505,12 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
     <span class="pin-close" onclick="clearPin()">✕</span>
   </div>
 
+  <button onclick="startCall()">📞 Call</button>
+
+<video id="localVideo" autoplay muted></video>
+<video id="remoteVideo" autoplay></video>
+
+
   <!-- Empty state -->
   <div class="empty-state" id="emptyState">
     <div class="empty-icon">💬</div>
@@ -538,6 +544,32 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
+
+    const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+
+let peerConnection;
+
+async function startCall() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+    });
+
+    localVideo.srcObject = stream;
+
+    peerConnection = new RTCPeerConnection();
+
+    stream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, stream);
+    });
+
+    peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+    };
+}
+
+
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */

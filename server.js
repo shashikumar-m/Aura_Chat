@@ -334,6 +334,50 @@ socket.on('sendMessage', async ({ username, room, message, to, image, replyTo })
 
         console.log('User disconnected:', socket.id);
     });
+
+    // CALL REQUEST
+socket.on('callUser', ({ to, from }) => {
+    if (onlineUsers[to]) {
+        io.to(onlineUsers[to]).emit('incomingCall', { from });
+    }
+});
+
+// OFFER
+socket.on('offer', ({ to, offer }) => {
+    io.to(onlineUsers[to]).emit('offer', offer);
+});
+
+// ANSWER
+socket.on('answer', ({ to, answer }) => {
+    io.to(onlineUsers[to]).emit('answer', answer);
+});
+
+// ICE
+socket.on('ice-candidate', ({ to, candidate }) => {
+    io.to(onlineUsers[to]).emit('ice-candidate', candidate);
+});
+
+socket.on('offer', async (offer) => {
+    await peerConnection.setRemoteDescription(offer);
+
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    socket.emit('answer', {
+        to: chattingWith,
+        answer
+    });
+});
+
+socket.on('answer', async (answer) => {
+    await peerConnection.setRemoteDescription(answer);
+});
+
+socket.on('ice-candidate', async (candidate) => {
+    await peerConnection.addIceCandidate(candidate);
+});
+
+
 });
 
 
