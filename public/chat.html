@@ -843,7 +843,7 @@ document.getElementById('myUsername').textContent = username;
 /* ══════════════════════════════════════════
    SOCKET
 ══════════════════════════════════════════ */
-const socket = io(window.location.origin, { transports: ["websocket", "polling"] });
+const socket = io("https://aura-chat-di62.onrender.com", { transports: ["websocket", "polling"] });
 
 /* ══════════════════════════════════════════
    THEME
