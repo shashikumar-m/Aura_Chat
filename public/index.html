@@ -462,7 +462,7 @@ async function login() {
 
   setLoading('loginBtn','loginSpinner','loginBtnText', true, 'Sign In →');
   try {
-    const res  = await fetch('/login', {
+    const res  = await fetch('https://aura-chat-di62.onrender.com/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
@@ -497,7 +497,7 @@ async function register() {
 
   setLoading('regBtn','regSpinner','regBtnText', true, 'Create Account →');
   try {
-    const res  = await fetch('/register', {
+    const res  = await fetch('https://aura-chat-di62.onrender.com/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });

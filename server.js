@@ -16,7 +16,8 @@ const app    = express();
 const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://chatwithme23.netlify.app"
+  "https://chatwithme23.netlify.app",
+  "https://aura-chat-di62.onrender.com"
 ];
 
 app.use(cors({

@@ -1257,7 +1257,7 @@ socket.on('userStopTyping', d => {
 async function loadUsers() {
   showSkeletons('userList', 5);
   try {
-    const users = await (await fetch('/users')).json();
+    const users = await (await fetch('https://aura-chat-di62.onrender.com/users')).json();
     const list = document.getElementById('userList'); list.innerHTML = "";
     users.forEach(u => { if (u.username !== username) addUserToList(u); });
   } catch (e) {
@@ -1523,7 +1523,7 @@ function renderReactions(msgId) {
    REQUESTS
 ══════════════════════════════════════════ */
 async function sendRequest(toUser) {
-  await fetch('/send-request', {
+  await fetch('https://aura-chat-di62.onrender.com/send-request', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: username, to: toUser })
   });
@@ -1532,7 +1532,7 @@ async function sendRequest(toUser) {
 async function startChat(otherUser) {
   if (blockedUsers.includes(otherUser)) { showToast("You've blocked this user", 'error'); return; }
   try {
-    const res = await fetch(`/check-permission?user1=${username}&user2=${otherUser}`);
+    const res = await fetch(`https://aura-chat-di62.onrender.com/check-permission?user1=${username}&user2=${otherUser}`);
     if (!res.ok) { showToast("Server error", 'error'); return; }
     const data = await res.json();
     if (data.status === "none") {
@@ -1553,7 +1553,7 @@ function generateRoom(a, b) { return [a, b].sort().join("_"); }
 
 async function loadRequests() {
   try {
-    const reqs = await (await fetch(`/requests?username=${username}`)).json();
+    const reqs = await (await fetch(`https://aura-chat-di62.onrender.com/requests?username=${username}`)).json();
     const container = document.getElementById('requestList');
     const label = document.getElementById('reqLabel');
     container.innerHTML = ''; label.style.display = reqs.length ? 'block' : 'none';
@@ -1570,11 +1570,11 @@ async function loadRequests() {
   } catch (e) {}
 }
 async function acceptRequest(fromUser) {
-  await fetch('/accept-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromUser, to: username }) });
+  await fetch('https://aura-chat-di62.onrender.com/accept-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromUser, to: username }) });
   showToast(`Accepted ${fromUser}`, 'success'); loadRequests();
 }
 async function rejectRequest(fromUser) {
-  await fetch('/reject-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromUser, to: username }) });
+  await fetch('https://aura-chat-di62.onrender.com/reject-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: fromUser, to: username }) });
   showToast(`Rejected ${fromUser}`, 'warn'); loadRequests();
 }
 
@@ -1611,7 +1611,7 @@ let allUsers = [];
 
 async function openGroupModal() {
   // Fetch users
-  try { allUsers = (await (await fetch('/users')).json()).filter(u => u.username !== username); }
+  try { allUsers = (await (await fetch('https://aura-chat-di62.onrender.com/users')).json()).filter(u => u.username !== username); }
   catch (e) { allUsers = []; }
   document.getElementById('groupName').value = "";
   groupAvatarData = "";
