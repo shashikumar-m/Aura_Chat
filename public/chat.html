@@ -1000,7 +1000,22 @@ const ringtone     = new Audio("https://actions.google.com/sounds/v1/alarms/phon
 const msgSound     = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..."); // placeholder
 ringtone.loop      = true;
 
-const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const ICE_SERVERS = {
+  iceServers: [
+    {
+      urls: "stun:stun.l.google.com:19302"
+    },
+    {
+      urls: [
+        "turn:global.relay.metered.ca:80",
+        "turn:global.relay.metered.ca:443",
+        "turns:global.relay.metered.ca:443"
+      ],
+      username: "openrelayproject",
+      credential: "openrelayproject"
+    }
+  ]
+};
 
 document.getElementById('myUsername').textContent = username;
 
@@ -1900,17 +1915,34 @@ socket.on('newRequest', data => { showToast(`New request from ${data.from}`, 'in
 /* ══════════════════════════════════════════
    WEBRTC
 ══════════════════════════════════════════ */
+
 async function setupPeerConnection() {
   peerConnection = new RTCPeerConnection(ICE_SERVERS);
+
   peerConnection.onicecandidate = e => {
-    if (e.candidate) socket.emit('iceCandidate', { to: chattingWith || incomingCaller, candidate: e.candidate });
+    if (e.candidate) {
+      socket.emit('iceCandidate', {
+        to: chattingWith || incomingCaller,
+        candidate: e.candidate
+      });
+    }
   };
-  peerConnection.ontrack = e => { document.getElementById('remoteVideo').srcObject = e.streams[0]; };
+
+  peerConnection.ontrack = e => {
+    document.getElementById('remoteVideo').srcObject = e.streams[0];
+  };
+
   peerConnection.onconnectionstatechange = () => {
-    if (['disconnected', 'failed', 'closed'].includes(peerConnection.connectionState)) endCall();
+    if (['disconnected', 'failed', 'closed'].includes(peerConnection.connectionState)) {
+      endCall();
+    }
   };
-  if (localStream) localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+
+  if (localStream) {
+    localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+  }
 }
+
 async function getLocalStream() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   document.getElementById('localVideo').srcObject = localStream;
@@ -1954,9 +1986,25 @@ function rejectCall() {
 socket.on('callAnswered', async data => {
   await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
 });
-socket.on('iceCandidate', async data => {
-  try { if (peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+socket.on('iceCandidate', async (data) => {
+  try {
+    if (peerConnection && data.candidate) {
+      await peerConnection.addIceCandidate(
+        new RTCIceCandidate(data.candidate)
+      );
+    }
+  } catch (err) {
+    console.error("ICE error:", err);
+  }
 });
+
+socket.on('iceCandidate', ({ to, candidate }) => {
+  io.to(to).emit('iceCandidate', {
+    from: socket.id,
+    candidate
+  });
+});
+
 socket.on('callRejected', data => { showToast(`${data.from} rejected your call`, "error"); endCall(); });
 function endCall() {
   if (peerConnection) { peerConnection.close(); peerConnection = null; }
