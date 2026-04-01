@@ -993,9 +993,11 @@ const sentMsgIds   = new Set();
 let settings = JSON.parse(localStorage.getItem("appSettings") || '{"notif":false,"sound":true,"pin":false}');
 
 // WebRTC
-let peerConnection = null;
-let localStream    = null;
-let incomingCaller = "";
+let peerConnection       = null;
+let localStream          = null;
+let incomingCaller       = "";
+let iceCandidateQueue    = [];   // queue candidates until remoteDesc is set
+let remoteDescriptionSet = false;
 const ringtone     = new Audio("https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg");
 const msgSound     = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..."); // placeholder
 ringtone.loop      = true;
@@ -1916,8 +1918,22 @@ socket.on('newRequest', data => { showToast(`New request from ${data.from}`, 'in
    WEBRTC
 ══════════════════════════════════════════ */
 
+// Flush ICE candidates that arrived before setRemoteDescription was called
+async function flushIceCandidates() {
+  while (iceCandidateQueue.length > 0) {
+    const candidate = iceCandidateQueue.shift();
+    try {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+      console.warn('Queued ICE candidate error:', err);
+    }
+  }
+}
+
 async function setupPeerConnection() {
-  peerConnection = new RTCPeerConnection(ICE_SERVERS);
+  peerConnection       = new RTCPeerConnection(ICE_SERVERS);
+  remoteDescriptionSet = false;
+  iceCandidateQueue    = [];
 
   peerConnection.onicecandidate = e => {
     if (e.candidate) {
@@ -1929,10 +1945,13 @@ async function setupPeerConnection() {
   };
 
   peerConnection.ontrack = e => {
-    document.getElementById('remoteVideo').srcObject = e.streams[0];
+    if (e.streams && e.streams[0]) {
+      document.getElementById('remoteVideo').srcObject = e.streams[0];
+    }
   };
 
   peerConnection.onconnectionstatechange = () => {
+    console.log('WebRTC state:', peerConnection.connectionState);
     if (['disconnected', 'failed', 'closed'].includes(peerConnection.connectionState)) {
       endCall();
     }
@@ -1947,69 +1966,92 @@ async function getLocalStream() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   document.getElementById('localVideo').srcObject = localStream;
 }
+
 async function startCallRequest() {
   if (!chattingWith) { showToast("Select a user first", "warn"); return; }
   try {
-    await getLocalStream(); await setupPeerConnection();
+    await getLocalStream();
+    await setupPeerConnection();
     document.getElementById('videoContainer').classList.add('show');
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('callUser', { to: chattingWith, from: username, offer });
     showToast(`Calling ${chattingWith}…`);
-  } catch (e) { showToast("Could not access camera/mic", "error"); }
+  } catch (e) {
+    console.error('startCallRequest error:', e);
+    showToast("Could not access camera/mic", "error");
+  }
 }
-socket.on('incomingCall', async data => {
+
+socket.on('incomingCall', data => {
   incomingCaller = data.from;
   document.getElementById('callerName').textContent = `${incomingCaller} is calling…`;
   document.getElementById('callPopup').style.display = 'block';
   socket._pendingOffer = data.offer;
   try { ringtone.play(); } catch (e) {}
 });
+
 async function acceptCall() {
   ringtone.pause(); ringtone.currentTime = 0;
   document.getElementById('callPopup').style.display = 'none';
   try {
-    await getLocalStream(); await setupPeerConnection();
+    await getLocalStream();
+    await setupPeerConnection();
     document.getElementById('videoContainer').classList.add('show');
+    // Set remote description first, then flush any queued ICE candidates
     await peerConnection.setRemoteDescription(new RTCSessionDescription(socket._pendingOffer));
+    remoteDescriptionSet = true;
+    await flushIceCandidates();
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     socket.emit('callAnswer', { to: incomingCaller, answer });
-    showToast(`Call started`, 'success');
-  } catch (e) { showToast("Could not access camera/mic", "error"); }
+    showToast('Call started', 'success');
+  } catch (e) {
+    console.error('acceptCall error:', e);
+    showToast("Could not access camera/mic", "error");
+  }
 }
+
 function rejectCall() {
   ringtone.pause(); ringtone.currentTime = 0;
   document.getElementById('callPopup').style.display = 'none';
   socket.emit('rejectCall', { to: incomingCaller, from: username });
 }
+
+// Caller receives the answer — set remote description then flush queued ICE
 socket.on('callAnswered', async data => {
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-});
-socket.on('iceCandidate', async (data) => {
   try {
-    if (peerConnection && data.candidate) {
-      await peerConnection.addIceCandidate(
-        new RTCIceCandidate(data.candidate)
-      );
-    }
-  } catch (err) {
-    console.error("ICE error:", err);
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+    remoteDescriptionSet = true;
+    await flushIceCandidates();
+  } catch (e) {
+    console.error('callAnswered error:', e);
   }
 });
 
-socket.on('iceCandidate', ({ to, candidate }) => {
-  io.to(to).emit('iceCandidate', {
-    from: socket.id,
-    candidate
-  });
+// Queue ICE candidates until remoteDescription is set
+socket.on('iceCandidate', async (data) => {
+  try {
+    if (!data.candidate) return;
+    if (peerConnection && remoteDescriptionSet) {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+    } else {
+      // Not ready yet — queue for later
+      iceCandidateQueue.push(data.candidate);
+    }
+  } catch (err) {
+    console.error('ICE candidate error:', err);
+  }
 });
 
-socket.on('callRejected', data => { showToast(`${data.from} rejected your call`, "error"); endCall(); });
+socket.on('callRejected', data => { showToast(`${data.from} rejected your call`, 'error'); endCall(); });
+
 function endCall() {
   if (peerConnection) { peerConnection.close(); peerConnection = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-  document.getElementById('localVideo').srcObject = null;
+  iceCandidateQueue    = [];
+  remoteDescriptionSet = false;
+  document.getElementById('localVideo').srcObject  = null;
   document.getElementById('remoteVideo').srcObject = null;
   document.getElementById('videoContainer').classList.remove('show');
   ringtone.pause(); ringtone.currentTime = 0;
