@@ -247,7 +247,10 @@ input::placeholder{color:var(--muted)}
 </div>
 
 <script>
-const SERVER = 'https://aura-chat-di62.onrender.com';  // Render backend
+const BACKEND_URL = window.location.hostname.includes('netlify.app') 
+  ? 'https://aura-chat-di62.onrender.com' 
+  : window.location.origin;
+const SERVER = BACKEND_URL;
 
 function switchTab(tab) {
   document.getElementById('loginForm').style.display    = tab === 'login'    ? 'block' : 'none';

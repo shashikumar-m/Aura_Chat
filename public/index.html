@@ -551,6 +551,10 @@
 </div>
 
 <script>
+const BACKEND_URL = window.location.hostname.includes('netlify.app') 
+  ? 'https://aura-chat-di62.onrender.com' 
+  : window.location.origin;
+
 /* ── Tab switching ── */
 function switchTab(name, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -617,7 +621,7 @@ async function login() {
 
   setLoading('loginBtn','loginSpinner','loginBtnText', true, 'Sign In →');
   try {
-    const res  = await fetch('https://aura-chat-di62.onrender.com/login', {
+    const res  = await fetch(BACKEND_URL + '/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
@@ -653,7 +657,7 @@ async function register() {
 
   setLoading('regBtn','regSpinner','regBtnText', true, 'Create Account →');
   try {
-    const res  = await fetch('https://aura-chat-di62.onrender.com/register', {
+    const res  = await fetch(BACKEND_URL + '/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });

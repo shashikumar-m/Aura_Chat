@@ -915,6 +915,9 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
+const BACKEND_URL = window.location.hostname === 'chatwithme23.netlify.app' 
+  ? 'https://aura-chat-di62.onrender.com' 
+  : window.location.origin;
 /* ══════════════════════════════════════════
    PIN LOCK SYSTEM
 ══════════════════════════════════════════ */
@@ -1063,7 +1066,7 @@ document.getElementById('myUsername').textContent = username;
 /* ══════════════════════════════════════════
    SOCKET
 ══════════════════════════════════════════ */
-const socket = io("https://aura-chat-di62.onrender.com", { transports: ["websocket", "polling"] });
+const socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
 
 /* ══════════════════════════════════════════
    THEME
@@ -1496,8 +1499,8 @@ async function loadUsers() {
   showSkeletons('userList', 5);
   try {
     const [users, onlineList] = await Promise.all([
-      fetch(`https://aura-chat-di62.onrender.com/users?requester=${encodeURIComponent(username)}`).then(r => r.json()),
-      fetch('https://aura-chat-di62.onrender.com/online-users').then(r => r.json())
+      fetch(`${BACKEND_URL}/users?requester=${encodeURIComponent(username)}`).then(r => r.json()),
+      fetch(`${BACKEND_URL}/online-users`).then(r => r.json())
     ]);
     const onlineSet = new Set(onlineList);
     const list = document.getElementById('userList'); list.innerHTML = "";
@@ -1783,7 +1786,7 @@ async function sendRequest(toUser) {
 async function startChat(otherUser) {
   if (blockedUsers.includes(otherUser)) { showToast("You've blocked this user", 'error'); return; }
   try {
-    const res = await fetch(`https://aura-chat-di62.onrender.com/check-permission?user1=${username}&user2=${otherUser}`);
+    const res = await fetch(`${BACKEND_URL}/check-permission?user1=${username}&user2=${otherUser}`);
     if (!res.ok) { showToast("Server error", 'error'); return; }
     const data = await res.json();
     if (data.status === "none") {
@@ -1804,7 +1807,7 @@ function generateRoom(a, b) { return [a, b].sort().join("_"); }
 
 async function loadRequests() {
   try {
-    const reqs = await (await fetch(`https://aura-chat-di62.onrender.com/requests?username=${username}`)).json();
+    const reqs = await (await fetch(`${BACKEND_URL}/requests?username=${username}`)).json();
     const container = document.getElementById('requestList');
     const label = document.getElementById('reqLabel');
     container.innerHTML = ''; label.style.display = reqs.length ? 'block' : 'none';
@@ -1862,7 +1865,7 @@ let allUsers = [];
 
 async function openGroupModal() {
   // Fetch users
-  try { allUsers = (await (await fetch(`https://aura-chat-di62.onrender.com/users?requester=${encodeURIComponent(username)}`)).json()).filter(u => u.username !== username); }
+  try { allUsers = (await (await fetch(`${BACKEND_URL}/users?requester=${encodeURIComponent(username)}`)).json()).filter(u => u.username !== username); }
   catch (e) { allUsers = []; }
   document.getElementById('groupName').value = "";
   groupAvatarData = "";
@@ -2185,7 +2188,7 @@ function doLogout() {
 ══════════════════════════════════════════ */
 async function checkStorageQuota() {
   try {
-    const res = await fetch(`https://aura-chat-di62.onrender.com/storage-usage?username=${username}`);
+    const res = await fetch(`${BACKEND_URL}/storage-usage?username=${username}`);
     const data = await res.json();
     const usedMB = data.usedMB || 0;
     if (usedMB >= 25) showStorageAlert(usedMB);
@@ -2201,7 +2204,7 @@ async function exportAndDeleteData() {
   const btn = document.getElementById('exportDeleteBtn');
   btn.disabled = true; btn.textContent = 'Exporting…';
   try {
-    const res = await fetch(`https://aura-chat-di62.onrender.com/export-data?username=${username}`);
+    const res = await fetch(`${BACKEND_URL}/export-data?username=${username}`);
     const data = await res.json();
     // Build CSV/Excel content
     let csv = 'Room,Sender,Message,Image,Timestamp\n';
