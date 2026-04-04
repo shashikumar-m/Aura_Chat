@@ -262,7 +262,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 .pin-close{font-size:0.7rem;color:var(--muted);cursor:pointer;padding:2px 4px}
 
 /* MESSAGES */
-#messages{position:relative;z-index:1;flex:1;padding:16px 14px;
+#messages{position:relative;z-index:1;flex:1;min-height:0;padding:16px 14px;
   overflow-y:auto;list-style:none;display:flex;flex-direction:column;gap:6px;
   scrollbar-width:thin;scrollbar-color:var(--surface2) transparent;-webkit-overflow-scrolling:touch}
 #messages::-webkit-scrollbar{width:3px}
@@ -344,7 +344,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 .emoji-btn:hover{transform:scale(1.3);background:var(--surface2)}
 
 /* INPUT BOX */
-#inputArea{position:relative;z-index:1;background:rgba(17,17,24,0.95);backdrop-filter:blur(14px);border-top:1px solid var(--border)}
+#inputArea{flex-shrink:0;position:relative;z-index:1;background:rgba(17,17,24,0.95);backdrop-filter:blur(14px);border-top:1px solid var(--border)}
 [data-theme="light"] #inputArea{background:rgba(255,255,255,0.95)}
 
 #replyBar{display:none;padding:8px 14px;background:var(--reply-bg);
