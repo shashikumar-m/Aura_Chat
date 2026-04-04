@@ -371,24 +371,52 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
 #sendBtn svg{width:17px;height:17px;fill:#fff}
 
 /* CALL POPUP */
-#callPopup{display:none;position:fixed;bottom:20px;right:20px;background:var(--surface);
-  color:var(--text);padding:16px 18px;border-radius:16px;box-shadow:0 10px 30px var(--shadow);
-  z-index:9999;border:1px solid var(--border);min-width:220px}
-#callPopup p{font-size:0.88rem;margin-bottom:12px;font-weight:500}
-.call-actions{display:flex;gap:8px}
-.call-btn{flex:1;padding:8px;border:none;border-radius:10px;cursor:pointer;
-  font-family:'Instrument Sans',sans-serif;font-size:0.82rem;font-weight:500}
-.call-btn.accept{background:rgba(74,222,128,0.18);color:var(--success);border:1px solid rgba(74,222,128,0.3)}
-.call-btn.reject{background:rgba(248,113,113,0.15);color:var(--danger);border:1px solid rgba(248,113,113,0.25)}
+#callPopup{display:none;position:fixed;inset:0;z-index:10001;
+  background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);
+  align-items:center;justify-content:center;flex-direction:column;gap:18px}
+#callPopup.show{display:flex}
+#callPopup p{font-size:1rem;color:#fff;font-weight:600;text-align:center}
+.call-actions{display:flex;gap:14px}
+.call-btn{padding:12px 28px;border:none;border-radius:50px;cursor:pointer;
+  font-family:'Instrument Sans',sans-serif;font-size:0.95rem;font-weight:600;
+  display:flex;align-items:center;gap:8px;transition:transform 0.12s}
+.call-btn:active{transform:scale(0.92)}
+.call-btn.accept{background:#22c55e;color:#fff;box-shadow:0 4px 20px rgba(34,197,94,0.4)}
+.call-btn.reject{background:#ef4444;color:#fff;box-shadow:0 4px 20px rgba(239,68,68,0.4)}
+.caller-avatar-ring{width:90px;height:90px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),#a78bfa);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:2rem;font-weight:700;color:#fff;
+  box-shadow:0 0 0 8px rgba(91,106,247,0.2),0 0 0 16px rgba(91,106,247,0.08);
+  animation:callPulse 1.5s ease-in-out infinite}
+@keyframes callPulse{
+  0%,100%{box-shadow:0 0 0 8px rgba(91,106,247,0.2),0 0 0 16px rgba(91,106,247,0.08)}
+  50%{box-shadow:0 0 0 14px rgba(91,106,247,0.15),0 0 0 28px rgba(91,106,247,0.05)}}
 
-#videoContainer{display:none;position:fixed;bottom:80px;right:20px;z-index:8000;
-  background:var(--surface);border:1px solid var(--border);border-radius:16px;
-  overflow:hidden;box-shadow:0 10px 40px var(--shadow)}
-#videoContainer.show{display:block}
-#localVideo{width:120px;height:90px;object-fit:cover;display:block}
-#remoteVideo{width:240px;height:180px;object-fit:cover;display:block;border-top:1px solid var(--border)}
-.video-end-btn{width:100%;padding:8px;background:rgba(248,113,113,0.2);border:none;
-  color:var(--danger);cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:0.82rem}
+/* VIDEO CALL MODAL — full screen */
+#videoContainer{
+  display:none;position:fixed;inset:0;z-index:10000;
+  background:#000;flex-direction:column}
+#videoContainer.show{display:flex}
+#remoteVideo{
+  flex:1;width:100%;object-fit:cover;display:block;background:#111}
+#localVideo{
+  position:absolute;bottom:80px;right:16px;
+  width:120px;height:90px;object-fit:cover;
+  border-radius:12px;border:2px solid rgba(255,255,255,0.3);
+  display:block;box-shadow:0 4px 16px rgba(0,0,0,0.6)}
+#videoCallBar{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:14px 20px;background:linear-gradient(transparent,rgba(0,0,0,0.8));
+  display:flex;align-items:center;justify-content:space-between}
+#videoCallStatus{color:rgba(255,255,255,0.7);font-size:0.8rem}
+#videoCallName{color:#fff;font-family:'Syne',sans-serif;font-size:1rem;font-weight:700}
+.video-end-btn{
+  width:52px;height:52px;background:#ef4444;border:none;border-radius:50%;
+  color:#fff;cursor:pointer;font-size:1.3rem;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 18px rgba(239,68,68,0.5);transition:transform 0.12s}
+.video-end-btn:active{transform:scale(0.88)}
 
 /* MODALS */
 #overlay{display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,0.62);backdrop-filter:blur(3px)}
@@ -543,20 +571,27 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;
   <div class="pin-setup-note" id="pinSetupNote"></div>
 </div>
 
-<!-- Call Popup -->
+<!-- Incoming Call Popup -->
 <div id="callPopup">
+  <div class="caller-avatar-ring" id="callerInitial">?</div>
   <p id="callerName"></p>
   <div class="call-actions">
-    <button class="call-btn accept" onclick="acceptCall()">✅ Accept</button>
-    <button class="call-btn reject" onclick="rejectCall()">❌ Reject</button>
+    <button class="call-btn accept" onclick="acceptCall()">📞 Accept</button>
+    <button class="call-btn reject" onclick="rejectCall()">📵 Decline</button>
   </div>
 </div>
 
-<!-- Video Container -->
+<!-- Full-Screen Video Call -->
 <div id="videoContainer">
   <video id="remoteVideo" autoplay playsinline></video>
   <video id="localVideo" autoplay muted playsinline></video>
-  <button class="video-end-btn" onclick="endCall()">End Call</button>
+  <div id="videoCallBar">
+    <div>
+      <div id="videoCallName"></div>
+      <div id="videoCallStatus">Connecting…</div>
+    </div>
+    <button class="video-end-btn" onclick="endCall()" title="End Call">📵</button>
+  </div>
 </div>
 
 <div id="overlay" onclick="closeSidebar()"></div>
@@ -1004,17 +1039,21 @@ ringtone.loop      = true;
 
 const ICE_SERVERS = {
   iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302"
-    },
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
     {
       urls: [
-        "turn:global.relay.metered.ca:80",
-        "turn:global.relay.metered.ca:443",
-        "turns:global.relay.metered.ca:443"
+        'turn:global.relay.metered.ca:80',
+        'turn:global.relay.metered.ca:80?transport=tcp',
+        'turn:global.relay.metered.ca:443',
+        'turn:global.relay.metered.ca:443?transport=tcp',
+        'turns:global.relay.metered.ca:443'
       ],
-      username: "openrelayproject",
-      credential: "openrelayproject"
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
     }
   ]
 };
@@ -1947,13 +1986,23 @@ async function setupPeerConnection() {
   peerConnection.ontrack = e => {
     if (e.streams && e.streams[0]) {
       document.getElementById('remoteVideo').srcObject = e.streams[0];
+      const s = document.getElementById('videoCallStatus');
+      if (s) s.textContent = '🟢 Connected';
     }
   };
 
   peerConnection.onconnectionstatechange = () => {
-    console.log('WebRTC state:', peerConnection.connectionState);
-    if (['disconnected', 'failed', 'closed'].includes(peerConnection.connectionState)) {
-      endCall();
+    const state = peerConnection.connectionState;
+    console.log('WebRTC state:', state);
+    const s = document.getElementById('videoCallStatus');
+    if (s) {
+      if (state === 'connected')      s.textContent = '🟢 Connected';
+      else if (state === 'connecting') s.textContent = 'Connecting…';
+      else if (state === 'failed')     s.textContent = '🔴 Connection failed — check network';
+      else if (state === 'disconnected') s.textContent = '⚠️ Disconnected';
+    }
+    if (['disconnected', 'failed', 'closed'].includes(state)) {
+      setTimeout(endCall, 2000);
     }
   };
 
@@ -1968,10 +2017,12 @@ async function getLocalStream() {
 }
 
 async function startCallRequest() {
-  if (!chattingWith) { showToast("Select a user first", "warn"); return; }
+  if (!chattingWith) { showToast('Select a user first', 'warn'); return; }
   try {
     await getLocalStream();
     await setupPeerConnection();
+    document.getElementById('videoCallName').textContent = chattingWith;
+    document.getElementById('videoCallStatus').textContent = 'Calling…';
     document.getElementById('videoContainer').classList.add('show');
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
@@ -1979,24 +2030,28 @@ async function startCallRequest() {
     showToast(`Calling ${chattingWith}…`);
   } catch (e) {
     console.error('startCallRequest error:', e);
-    showToast("Could not access camera/mic", "error");
+    showToast('Could not access camera/mic', 'error');
   }
 }
 
 socket.on('incomingCall', data => {
-  incomingCaller = data.from;
-  document.getElementById('callerName').textContent = `${incomingCaller} is calling…`;
-  document.getElementById('callPopup').style.display = 'block';
-  socket._pendingOffer = data.offer;
+  incomingCaller        = data.from;
+  socket._pendingOffer  = data.offer;   // ← store offer so acceptCall can use it
+  const initial = incomingCaller.charAt(0).toUpperCase();
+  document.getElementById('callerInitial').textContent = initial;
+  document.getElementById('callerName').textContent = `${incomingCaller} is calling you…`;
+  document.getElementById('callPopup').classList.add('show');
   try { ringtone.play(); } catch (e) {}
 });
 
 async function acceptCall() {
   ringtone.pause(); ringtone.currentTime = 0;
-  document.getElementById('callPopup').style.display = 'none';
+  document.getElementById('callPopup').classList.remove('show');
   try {
     await getLocalStream();
     await setupPeerConnection();
+    document.getElementById('videoCallName').textContent = incomingCaller;
+    document.getElementById('videoCallStatus').textContent = 'Connecting…';
     document.getElementById('videoContainer').classList.add('show');
     // Set remote description first, then flush any queued ICE candidates
     await peerConnection.setRemoteDescription(new RTCSessionDescription(socket._pendingOffer));
@@ -2008,13 +2063,13 @@ async function acceptCall() {
     showToast('Call started', 'success');
   } catch (e) {
     console.error('acceptCall error:', e);
-    showToast("Could not access camera/mic", "error");
+    showToast('Could not access camera/mic', 'error');
   }
 }
 
 function rejectCall() {
   ringtone.pause(); ringtone.currentTime = 0;
-  document.getElementById('callPopup').style.display = 'none';
+  document.getElementById('callPopup').classList.remove('show');
   socket.emit('rejectCall', { to: incomingCaller, from: username });
 }
 
@@ -2024,6 +2079,7 @@ socket.on('callAnswered', async data => {
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
     remoteDescriptionSet = true;
     await flushIceCandidates();
+    document.getElementById('videoCallStatus').textContent = 'Connecting…';
   } catch (e) {
     console.error('callAnswered error:', e);
   }
@@ -2054,6 +2110,7 @@ function endCall() {
   document.getElementById('localVideo').srcObject  = null;
   document.getElementById('remoteVideo').srcObject = null;
   document.getElementById('videoContainer').classList.remove('show');
+  document.getElementById('callPopup').classList.remove('show');
   ringtone.pause(); ringtone.currentTime = 0;
 }
 
