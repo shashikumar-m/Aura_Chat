@@ -1988,7 +1988,9 @@ async function setupPeerConnection() {
 
   peerConnection.ontrack = e => {
     if (e.streams && e.streams[0]) {
-      document.getElementById('remoteVideo').srcObject = e.streams[0];
+      const rVid = document.getElementById('remoteVideo');
+      rVid.srcObject = e.streams[0];
+      setTimeout(() => rVid.play().catch(e=>console.warn(e)), 50);
       const s = document.getElementById('videoCallStatus');
       if (s) s.textContent = '🟢 Connected';
     }
@@ -2016,7 +2018,9 @@ async function setupPeerConnection() {
 
 async function getLocalStream() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  document.getElementById('localVideo').srcObject = localStream;
+  const lVid = document.getElementById('localVideo');
+  lVid.srcObject = localStream;
+  setTimeout(() => lVid.play().catch(e=>console.warn(e)), 50);
 }
 
 async function startCallRequest() {
